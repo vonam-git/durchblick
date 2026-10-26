@@ -1,0 +1,16 @@
+# Zeilenenden im Repository immer LF, unabhängig vom Betriebssystem.
+# Das unterdrückt die Warnung «LF will be replaced by CRLF» und verhindert
+# unnötige Diffs zwischen Windows, macOS und Ubuntu.
+* text=auto eol=lf
+
+# Windows-Skripte (falls später welche dazukommen) behalten CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binärdateien nicht anfassen
+*.png binary
+*.jpg binary
+*.ico binary
+*.db binary
+*.sqlite binary

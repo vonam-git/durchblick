@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtuelle Umgebungen
+.venv/
+venv/
+env/
+
+# Lokale Konfiguration mit Zugangsdaten (Vorlage durchblick.conf.yml bleibt im Repo)
+durchblick.conf.local.yml
+*.local.yml
+.env
+
+# Lokale Datenbanken und Dumps
+*.db
+*.sqlite
+*.sqlite3
+*.sql.gz
+
+# Logs
+*.log
+
+# Editoren und IDEs
+.idea/
+.vscode/
+*.swp
+*~
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
+desktop.ini

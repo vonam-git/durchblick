@@ -1,0 +1,117 @@
+---
+##################################################################
+# DURCHBLICK KONFIGURATION                                       #
+# ============================================================== #
+#                                                                #
+# NUR IN DIESER DATEI ARBEITEN!                                  #
+# Die Web-App (durchblick_web.py) wird NICHT verändert.          #
+#                                                                #
+# Funktionsweise: Solange eine Query nicht korrekt an die        #
+# Datenbank angepasst ist, zeigt die Weboberfläche ein Emoji.    #
+# Ziel: Alle Emojis durch echte Daten ersetzen!                  #
+#                                                                #
+# Änderungen gelten sofort (Datei speichern, Seite wechseln).    #
+# Im Control Panel prüft der Reiter «Prüfen» alle Queries.       #
+##################################################################
+
+##########################################
+# Verbindungsangaben zum Datenbankserver #
+##########################################
+db:
+  # Mögliche Treiber:
+  #   mysql    -> MariaDB / MySQL
+  #   Pg       -> PostgreSQL
+  #   SQLite   -> SQLite (Dateidatenbank)
+  #   ODBC     -> ODBC (DSN muss in /etc/odbc.ini bzw. im ODBC-Manager definiert sein)
+  #
+  # Beispiele:
+  #   'DBI:mysql:database=m141;host=localhost;port=3306'
+  #   'DBI:Pg:dbname=m141;host=localhost;port=5432'
+  #   'DBI:SQLite:dbname=/opt/durchblick/m141.db'
+  #   'DBI:ODBC:m141dsn'
+  dsn: 'DBI:mysql:database=m141;host=localhost;port=3306'
+  user: DBUSER
+  pass: DBPASS
+
+############################################################
+# SQL-Queries                                              #
+# WICHTIG: Bind-Parameter werden immer als ? geschrieben!  #
+# Die App ersetzt ? automatisch durch das vom jeweiligen   #
+# Datenbanktreiber erwartete Zeichen.                      #
+# Texte in Queries immer in 'einfachen Anführungszeichen'. #
+############################################################
+
+# Projektinformation (Startseite)
+project:
+  # Liest den Projektautor (komprimiert + base64url kodiert!) aus der DB
+  author: "select content from Data join Meta on Data.digest = Meta.digest where Meta.path = '/opt/frigg/admin/projekt.txt';"
+
+# Startseite
+index:
+  # Datenbankversion abfragen (SQLite: select sqlite_version();)
+  sql_db_version: 'select version();'
+
+# Übersichtsseite
+overview:
+  # Anzahl Einträge pro Tabelle
+  sql_data_count: 'select count(*) from Data;'
+  sql_meta_count: 'select count(*) from Meta;'
+  sql_type_count: 'select count(*) from Type;'
+  sql_tag_count:  'select count(*) from Tag;'
+  sql_usr_count:  'select count(*) from Usr;'
+  sql_grp_count:  'select count(*) from Grp;'
+  # Aufsummierte Grösse des Attributes «size»
+  sql_data_size_sum: 'select sum(size) from Data;'
+  sql_meta_size_sum: 'select sum(size) from Meta;'
+  # Aufsummierte, in der DB belegte Grösse von «content» (Original)
+  sql_data_contentsize_sum: 'select sum(length(content)) from Data;'
+  # Aufsummierte Grösse von «content» im JOIN Data mit Meta
+  sql_meta_contentsize_sum: 'select sum(length(d.content)) from Data d join Meta m on d.digest = m.digest;'
+
+# Browser-Seite
+browse:
+  # Bind-Parameter 1: path-pattern (LIKE), Bind-Parameter 2: limit
+  # Die Spalte «digest» wird benötigt, damit der Browser Datensätze verlinken kann.
+  # Weichen die Spaltennamen in der DB ab, Aliase verwenden.
+  # Beispiel: 'select hash as digest, ...'
+  sql_browseview_bind: "select digest, path, size, type, perm, usr, grp, time, compression from Meta where path like ? limit ?;"
+
+# Daten-Detailseite
+data:
+  # Attribut «content» (komprimiert + base64url), Bind-Parameter 1: digest
+  sql_content_bind: "select content from Data where digest = ?;"
+  # Pfade zum digest, Bind-Parameter 1: digest
+  sql_contentpaths_bind: "select path from Meta where digest = ?;"
+  # Neuen Tag einfügen, existierende Namen ignorieren, Bind-Parameter 1: Tag-Name
+  #   MySQL / MariaDB: insert ignore into Tag (name) values (?);
+  #   SQLite:          insert or ignore into Tag (name) values (?);
+  #   PostgreSQL:      insert into Tag (name) values (?) on conflict do nothing;
+  sql_tag_insert_unique_bind: "insert ignore into Tag (name) values (?);"
+  # Verknüpfung Data-Tag einfügen, Doppelte ignorieren,
+  # Bind-Parameter 1: digest, Bind-Parameter 2: Tag-Name
+  #   MySQL / MariaDB: insert ignore into DataTag (data, tag) values (?, ?);
+  #   SQLite:          insert or ignore into DataTag (data, tag) values (?, ?);
+  #   PostgreSQL:      insert into DataTag (data, tag) values (?, ?) on conflict do nothing;
+  sql_datatag_insert_unique_bind: "insert ignore into DataTag (data, tag) values (?, ?);"
+  # Tags zu einem digest anzeigen, Bind-Parameter 1: digest
+  sql_tag_for_digest_bind: "select t.name from Tag t join DataTag dt on t.name = dt.tag where dt.data = ?;"
+
+# Raw-Ausgabe (Dateiinhalt)
+raw:
+  # Dateityp für den HTTP-Content-Type, Bind-Parameter 1: digest
+  sql_contenttype_bind: "select type from Data where digest = ? limit 1;"
+
+# Tags-Seiten
+tags:
+  # Alle Tags, alphabetisch
+  sql_tags_all_ordered: "select name from Tag order by name;"
+  # Alle Dateipfade zu einem Tag, Bind-Parameter 1: Tag-Name
+  sql_metapaths_for_tag_bind: "select m.path from Meta m join DataTag dt on m.digest = dt.data where dt.tag = ?;"
+
+##################################
+# APPLIKATIONS-EINSTELLUNGEN     #
+# AB HIER NICHT MEHR ÄNDERN!     #
+##################################
+app:
+  host: 127.0.0.1
+  port: 3000

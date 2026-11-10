@@ -43,9 +43,11 @@ except ModuleNotFoundError as exc:  # z. B. PyYAML fehlt
     db = None
     IMPORT_ERROR = exc
 
-APP_VERSION = "1.1"
+APP_VERSION = "2.0"
 APP_DIR = Path(__file__).resolve().parent
 WEB_SCRIPT = APP_DIR / "durchblick_web.py"
+THEME_DIR = APP_DIR / "theme"
+DOCS_DIR = APP_DIR / "docs"
 IS_MAC = sys.platform == "darwin"
 SAVE_KEY = "Cmd+S" if IS_MAC else "Strg+S"
 
@@ -65,18 +67,21 @@ app:
 
 START_TEXT = f"""So gehst du vor:
 
-  1.  Reiter «Konfiguration»: Verbindung (DSN, Benutzer, Passwort) und Queries anpassen
+  1.  Oben auf «Starten» klicken. Die Weboberfläche öffnet sich im Browser.
+  2.  In der Weboberfläche den Reiter «Werkstatt» öffnen: Rohdaten verkleinern,
+       CSV generieren und prüfen. Danach die CSV in deine Datenbank importieren.
+  3.  Reiter «Konfiguration»: Verbindung (DSN, Benutzer, Passwort) und Queries anpassen
        und speichern ({SAVE_KEY}).
-  2.  Reiter «Prüfen»: «Verbindung testen» und «Alle Queries prüfen» ausführen.
-       Fehler stehen direkt in der Tabelle.
-  3.  Oben auf «Starten» klicken. Die Weboberfläche öffnet sich im Browser.
-  4.  Erscheinen in der Weboberfläche noch Emojis, ist die zugehörige Query noch nicht
+  4.  Reiter «Prüfen»: «Verbindung testen» und «Alle Queries prüfen» ausführen.
+  5.  Erscheinen in der Weboberfläche noch Emojis, ist die zugehörige Query noch nicht
        korrekt. Ein Mauszeiger über dem Emoji zeigt die Fehlermeldung.
+  6.  Gestalten: Reiter «Design» in der Weboberfläche, eigenes CSS in theme/eigenes.css.
 
 Gut zu wissen:
   •  Config-Änderungen gelten sofort. Ein Neustart des Servers ist nicht nötig.
-  •  Das Protokoll zeigt alle Meldungen des Servers (Reiter «Protokoll»).
-  •  Der Port kann in der Config unter «app: port:» geändert werden."""
+  •  Echtes Passwort? «Persönliche Kopie anlegen» speichert die Config als
+      durchblick.conf.local.yml. Diese Datei wird von Git ignoriert.
+  •  Das Protokoll zeigt alle Meldungen des Servers (Reiter «Protokoll»)."""
 
 
 # ----------------------------------------------------------------------------
@@ -198,7 +203,7 @@ class Panel:
         self.btn_stop = ttk.Button(right, text="■  Stoppen", style="Big.TButton", command=self.stop)
         self.btn_restart = ttk.Button(right, text="↻  Neustart", style="Big.TButton", command=self.restart)
         self.btn_browser = ttk.Button(right, text="Im Browser öffnen", style="Big.TButton",
-                                      command=self.open_browser)
+                                      command=lambda: self.open_browser())
         for b in (self.btn_start, self.btn_stop, self.btn_restart, self.btn_browser):
             b.pack(side="left", padx=3)
         ttk.Separator(self.root).pack(fill="x")
@@ -207,13 +212,25 @@ class Panel:
         tab = ttk.Frame(self.notebook, padding=16)
         self.notebook.add(tab, text="Start")
         ttk.Label(tab, text=START_TEXT, justify="left").pack(anchor="w")
+        row = ttk.Frame(tab)
+        row.pack(anchor="w", pady=(16, 4))
+        for text, target in (("🛠  Werkstatt öffnen", "werkstatt"), ("🖼  Galerie", "gallery"),
+                             ("🎨  Design", "design"), ("❓  Hilfe", "hilfe")):
+            ttk.Button(row, text=text, command=lambda t=target: self.open_browser(t)).pack(side="left", padx=(0, 6))
         ttk.Checkbutton(tab, text="Browser nach dem Start automatisch öffnen",
-                        variable=self.auto_open).pack(anchor="w", pady=(18, 4))
+                        variable=self.auto_open).pack(anchor="w", pady=(14, 4))
         row = ttk.Frame(tab)
         row.pack(anchor="w", pady=4)
         ttk.Label(row, text=f"Konfigurationsdatei: {self.cfg_path}").pack(side="left")
         ttk.Button(row, text="Ordner öffnen",
                    command=lambda: open_folder(self.cfg_path.parent)).pack(side="left", padx=10)
+        row = ttk.Frame(tab)
+        row.pack(anchor="w", pady=4)
+        ttk.Label(row, text=f"Eigene Gestaltung: {THEME_DIR / 'eigenes.css'}").pack(side="left")
+        ttk.Button(row, text="Design-Ordner öffnen",
+                   command=lambda: open_folder(THEME_DIR)).pack(side="left", padx=10)
+        ttk.Button(row, text="Anleitungen öffnen",
+                   command=lambda: open_folder(DOCS_DIR)).pack(side="left")
 
     def _build_config_tab(self):
         tab = ttk.Frame(self.notebook, padding=8)
@@ -223,6 +240,7 @@ class Panel:
         ttk.Button(bar, text=f"Speichern ({SAVE_KEY})", command=self.save_config).pack(side="left", padx=2)
         ttk.Button(bar, text="YAML prüfen", command=self.validate_yaml).pack(side="left", padx=2)
         ttk.Button(bar, text="Von Datei neu laden", command=self._reload_editor).pack(side="left", padx=2)
+        ttk.Button(bar, text="Persönliche Kopie anlegen", command=self.make_local_copy).pack(side="left", padx=2)
         self.dirty_lbl = ttk.Label(bar, text="")
         self.dirty_lbl.pack(side="right", padx=6)
         self.editor = scrolledtext.ScrolledText(tab, wrap="word", font=self.fixed, undo=True)
@@ -482,6 +500,35 @@ class Panel:
         self.log("Konfiguration gespeichert.", "PANEL")
         return True
 
+    def make_local_copy(self):
+        """Config als durchblick.conf.local.yml speichern (wird von Git ignoriert)."""
+        target = APP_DIR / db.LOCAL_CONFIG_NAME
+        if self.cfg_path == target:
+            messagebox.showinfo("Persönliche Kopie", f"Du arbeitest bereits mit {target.name}.")
+            return
+        if os.environ.get("DURCHBLICK_CONFIG"):
+            messagebox.showwarning("Persönliche Kopie",
+                                   "DURCHBLICK_CONFIG ist gesetzt. Die Kopie würde nicht verwendet.")
+            return
+        if target.exists() and not messagebox.askyesno(
+                "Überschreiben?", f"{target.name} existiert bereits. Überschreiben?"):
+            return
+        if self._editor_cfg() is None:
+            return
+        try:
+            with open(target, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(self.editor.get("1.0", "end-1c").rstrip() + "\n")
+        except OSError as exc:
+            messagebox.showerror("Fehler", f"Speichern fehlgeschlagen:\n{exc}")
+            return
+        self.cfg_path = target
+        self._set_dirty(False)
+        self.log(f"Persönliche Kopie angelegt: {target}", "PANEL")
+        messagebox.showinfo("Persönliche Kopie",
+                            f"Gespeichert als {target.name}.\n\nAb jetzt wird diese Datei verwendet. "
+                            "Trage dein echtes Passwort nur hier ein. Die Datei wird von Git ignoriert.\n\n"
+                            "Läuft der Webserver, bitte neu starten.")
+
     def _port(self) -> int:
         cfg = self._editor_cfg(show_error=False) or {}
         try:
@@ -587,12 +634,12 @@ class Panel:
         elif time.time() < deadline:
             self.root.after(400, lambda: self._open_when_ready(deadline))
 
-    def open_browser(self):
+    def open_browser(self, page: str = ""):
         if self.proc is None:
-            messagebox.showinfo("Hinweis", "Der Webserver läuft noch nicht.")
+            messagebox.showinfo("Hinweis", "Der Webserver läuft noch nicht. Zuerst oben auf «Starten» klicken.")
             return
         # 127.0.0.1 statt «localhost»: vermeidet Verzögerungen durch IPv6 (besonders unter Windows)
-        webbrowser.open(f"http://127.0.0.1:{self.run_port}")
+        webbrowser.open(f"http://127.0.0.1:{self.run_port}/" + (f"#{page}" if page else ""))
 
     def _refresh_status(self):
         running = self.proc is not None

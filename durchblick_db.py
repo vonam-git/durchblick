@@ -21,7 +21,8 @@ CONFIG_NAME = "durchblick.conf.yml"
 # Persönliche Kopie mit echtem Passwort, wird von Git ignoriert (.gitignore)
 LOCAL_CONFIG_NAME = "durchblick.conf.local.yml"
 # Passwort alternativ aus der Umgebung (überschreibt db.pass der Config)
-PASS_ENV = "DURCHBLICK_DB_PASS"
+# bandit B105: Name der Umgebungsvariable, kein Passwort
+PASS_ENV = "DURCHBLICK_DB_PASS"  # nosec B105
 TIMEOUT = 5  # Sekunden für den Verbindungsaufbau
 
 DRIVERS = {

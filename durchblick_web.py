@@ -89,7 +89,8 @@ def allowed_hosts() -> Optional[set]:
     except Exception:
         return hosts
     host = str(app_cfg.get("host") or "").strip()
-    if host and host not in ("0.0.0.0", "::"):
+    # bandit B104: nur ein Vergleich, hier wird nichts gebunden
+    if host and host not in ("0.0.0.0", "::"):  # nosec
         hosts.add(host.lower())
     extra = app_cfg.get("erlaubte_hosts") or []
     if isinstance(extra, str):

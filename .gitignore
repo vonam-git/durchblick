@@ -34,3 +34,14 @@ durchblick.conf.local.yml
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Persönliche Daten aus der Werkstatt (Name und Geburtsdatum!) nie committen
+datensatz_*.csv
+pruefbericht_*.txt
+*_klein.zip
+*.csv
+!tests/fixtures/*.csv
+
+# Testartefakte
+.pytest_cache/
+test-results/

@@ -36,7 +36,7 @@ Der Windows-Installer wird bei jedem Push auf `main` automatisch von GitHub Acti
 - Daten der Lernenden in `Dokumente\Durchblick` (Config, `theme/`, `docs/`). Bleiben bei Update und Deinstallation erhalten.
 - Stille Verteilung durch die Schul-IT:
   ```
-  Durchblick-Setup-2.0.exe /VERYSILENT /SUPPRESSMSGBOXES /CURRENTUSER /NORESTART
+  Durchblick-Setup-2.1.exe /VERYSILENT /SUPPRESSMSGBOXES /CURRENTUSER /NORESTART
   ```
   Für alle Benutzer (mit Admin-Rechten): `/ALLUSERS` statt `/CURRENTUSER`.
 - Der Installer ist nicht code-signiert. SmartScreen warnt darum beim ersten Mal. Wer das vermeiden will, signiert die EXE mit einem Zertifikat der Schule (`signtool`) oder lässt sie von der Schul-IT freigeben.

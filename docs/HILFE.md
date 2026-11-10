@@ -24,7 +24,11 @@ Die wichtigsten Antworten stehen auch direkt in der Weboberfläche im Reiter **�
 |---|---|
 | «Ordner wählen» fehlt oder geht nicht | Aktuellen Chrome, Edge oder Firefox verwenden. Alternativ Dateien markieren und hineinziehen oder vorher selbst ein ZIP machen |
 | Bild wird übersprungen: «Bild konnte nicht gelesen werden» | Format wird vom Browser nicht unterstützt (z.B. HEIC vom iPhone). Vorher in JPG/PNG umwandeln |
-| Video wird übersprungen | Browser kennt das Videoformat nicht (z.B. manche `.mov`). In MP4 umwandeln oder ein Standbild selbst speichern |
+| Video oder Audio wird übersprungen | Browser kennt das Format nicht (z.B. manche `.mov`, `.wma`). In MP4 bzw. MP3 umwandeln |
+| Clips dauern lange | Clips werden in Echtzeit aufgenommen (5 s pro Datei, 3 gleichzeitig). 30 Videos ≈ 1 Minute |
+| Clips sind ruckelig oder leer | Das Fenster war im Hintergrund oder minimiert. Im Vordergrund lassen und nochmals verkleinern |
+| «Dieser Browser kann keine Ausschnitte aufnehmen» | Chrome, Edge oder Firefox verwenden |
+| Videos/Audio fehlen in der Galerie | Query `gallery.sql_gallery_bind` um `or type like 'video/%' or type like 'audio/%'` ergänzen (ältere Configs zeigen nur Bilder) |
 | Ergebnis ist trotzdem gross | Längste Seite kleiner wählen, Qualität senken, «Maximalgrösse übrige Dateien» kleiner, «Dateien pro Ordner» begrenzen |
 | WebP wird zu JPG | Der Browser (z.B. Safari) kann kein WebP schreiben. Das ist in Ordnung |
 | Generator: «sehr gross, Tipp: zuerst verkleinern» | Das ZIP ist entpackt über 500 MB. Zuerst in Schritt 1 verkleinern |

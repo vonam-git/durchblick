@@ -78,6 +78,14 @@ def main():
             page.click("#cmpDownload")
         zip_path = work / dl.value.suggested_filename
         dl.value.save_as(zip_path)
+        import zipfile
+        with zipfile.ZipFile(zip_path) as z:
+            assert z.testzip() is None
+            media = [(i.filename, i.file_size) for i in z.infolist() if ".clip." in i.filename]
+        print("Clips im ZIP:", ", ".join(f"{n.split('/')[-1]} ({s // 1024} KB)" for n, s in media))
+        assert any(n.endswith((".webm", ".mp4")) for n, _ in media), "kein Videoclip"
+        assert any(n.endswith((".weba", ".ogg", ".m4a")) for n, _ in media), "kein Audio-Ausschnitt"
+        assert all(s < 400 * 1024 for _, s in media), "Clip zu gross"
 
         # Schritt 2: CSV generieren
         page.click("#cmpToGenerator")
@@ -108,9 +116,28 @@ def main():
         page.wait_for_selector(".gallery-item img", timeout=20000)
         page.wait_for_timeout(800)
         n = page.locator(".gallery-item").count()
-        print("Galerie:", n, "Bilder")
+        print("Galerie:", page.text_content("#gal-msg"))
+        vid = page.locator(".gallery-item.is-video").first
+        vid.hover()
+        page.wait_for_timeout(1500)
+        t = vid.locator("video").evaluate("v => v.currentTime")
+        print("Videoclip spielt beim Darüberfahren, Zeit:", round(t, 2), "s")
+        assert t > 0.2, "Videoclip spielt nicht"
+        page.screenshot(path=str(shots / "06b_galerie_video.png"), full_page=True)
+        page.locator(".gallery-item.is-audio").first.click()
+        page.wait_for_selector(".dialog audio")
+        page.wait_for_timeout(1200)
+        dur = page.locator(".dialog audio").evaluate("a => [a.duration, a.currentTime, a.error && a.error.code]")
+        print("Audio im Dialog (Dauer, Zeit, Fehler):", dur)
+        assert dur[2] is None and dur[1] > 0.2, "Audio spielt nicht"
+        assert dur[0] is not None and 2 < dur[0] < 12, "Audio-Ausschnitt ohne gültige Dauer"
+        vdur = vid.locator("video").evaluate("v => v.duration")
+        print("Dauer Videoclip:", round(vdur, 2), "s")
+        assert 2 < vdur < 12, "Videoclip ohne gültige Dauer"
+        page.screenshot(path=str(shots / "06c_audio_dialog.png"))
+        page.keyboard.press("Escape")
         page.screenshot(path=str(shots / "06_galerie.png"), full_page=True)
-        page.locator(".gallery-item").first.click()
+        page.locator(".gallery-item.is-image").first.click()
         page.wait_for_selector(".dialog .preview-img")
         page.screenshot(path=str(shots / "07_dialog.png"))
         page.keyboard.press("Escape")

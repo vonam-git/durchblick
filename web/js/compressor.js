@@ -19,6 +19,7 @@
 const CMP = {
   IMAGE_EXT: ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'gif', 'avif'],
   VIDEO_EXT: ['mp4', 'webm', 'mov', 'm4v', 'ogv'],
+  AUDIO_EXT: ['mp3', 'wav', 'ogg', 'oga', 'm4a', 'aac', 'flac', 'opus', 'weba'],
   TEXT_EXT: ['txt', 'md', 'json', 'csv', 'xml', 'yml', 'yaml', 'html', 'htm', 'css',
     'js', 'sql', 'svg', 'ini', 'log', 'cfg', 'conf', 'py', 'java', 'c', 'h', 'cpp', 'sh'],
   JUNK: ['.ds_store', 'thumbs.db', 'desktop.ini'],
@@ -36,6 +37,7 @@ function cmpKind(name) {
   if (e === 'gif') return 'gif';
   if (CMP.IMAGE_EXT.includes(e)) return 'image';
   if (CMP.VIDEO_EXT.includes(e)) return 'video';
+  if (CMP.AUDIO_EXT.includes(e)) return 'audio';
   if (CMP.TEXT_EXT.includes(e)) return 'text';
   return 'other';
 }
@@ -132,6 +134,226 @@ function videoPoster(blob, maxEdge, format, quality) {
 }
 
 /* ------------------------------------------------------------
+   Kurzclips aus Video und Audio
+   Der Browser spielt die Datei unsichtbar ab und nimmt dabei mit
+   MediaRecorder einen kurzen Ausschnitt auf (Echtzeit: 5 s Clip
+   brauchen ca. 5 s). Video wird dabei klein skaliert, Audio wird
+   sanft ein- und ausgeblendet. Ergebnis: WebM (VP8/VP9 + Opus),
+   in Safari MP4.
+   ------------------------------------------------------------ */
+function recorderMime(kind) {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return '';
+  const list = kind === 'video'
+    ? ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4']
+    : ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/webm', 'audio/mp4'];
+  return list.find(m => MediaRecorder.isTypeSupported(m)) || '';
+}
+
+function mimeExt(mime) {
+  if (mime.startsWith('video/webm')) return 'webm';
+  if (mime.startsWith('video/mp4')) return 'mp4';
+  if (mime.startsWith('audio/webm')) return 'weba';
+  if (mime.startsWith('audio/ogg')) return 'ogg';
+  return 'm4a';
+}
+
+/* Chrome schreibt in MediaRecorder-WebM keine Dauer. Ohne Dauer zeigt der
+   Player keine Zeitleiste. Hier wird das Element «Duration» (0x4489) in den
+   Abschnitt «Info» des WebM-Kopfs eingefügt. Unbekannte Dateien bleiben
+   unverändert. */
+function fixWebmDuration(bytes, ms) {
+  const u8 = bytes;
+  const vint = (p) => {               // EBML-Zahl: { len, value, unknown }
+    const b = u8[p];
+    let len = 1, mask = 0x80;
+    while (len <= 8 && !(b & mask)) { len++; mask >>= 1; }
+    if (len > 8) return null;
+    let value = b & (mask - 1), allOnes = value === mask - 1;
+    for (let i = 1; i < len; i++) { value = value * 256 + u8[p + i]; if (u8[p + i] !== 0xFF) allOnes = false; }
+    return { len, value, unknown: allOnes };
+  };
+  const idLen = (p) => { const b = u8[p]; return b & 0x80 ? 1 : b & 0x40 ? 2 : b & 0x20 ? 3 : b & 0x10 ? 4 : 0; };
+  const readId = (p) => { let v = 0; const n = idLen(p); for (let i = 0; i < n; i++) v = v * 256 + u8[p + i]; return { id: v, len: n }; };
+  const encSize = (value, len) => {
+    const out = new Uint8Array(len);
+    let v = value;
+    for (let i = len - 1; i >= 0; i--) { out[i] = v % 256; v = Math.floor(v / 256); }
+    out[0] |= 0x80 >> (len - 1);
+    return out;
+  };
+  try {
+    let p = 0;
+    let e = readId(p); if (e.id !== 0x1A45DFA3) return bytes;          // EBML-Kopf
+    let sz = vint(p + e.len); p += e.len + sz.len + sz.value;
+    e = readId(p); if (e.id !== 0x18538067) return bytes;               // Segment
+    const segSizePos = p + e.len, seg = vint(segSizePos);
+    p = segSizePos + seg.len;
+    const segEnd = seg.unknown ? u8.length : p + seg.value;
+    while (p < segEnd) {
+      e = readId(p);
+      if (!e.len) return bytes;
+      const s2 = vint(p + e.len);
+      if (!s2) return bytes;
+      if (e.id === 0x1549A966) {                                        // Info
+        const dataStart = p + e.len + s2.len, dataEnd = dataStart + s2.value;
+        for (let q = dataStart; q < dataEnd;) {
+          const c = readId(q), cs = vint(q + c.len);
+          if (c.id === 0x4489) return bytes;                            // Dauer schon da
+          q += c.len + cs.len + cs.value;
+        }
+        const dur = new Uint8Array(11);
+        dur.set([0x44, 0x89, 0x88]);
+        new DataView(dur.buffer).setFloat64(3, ms);
+        const newSize = s2.value + dur.length;
+        let sizeLen = s2.len;
+        while (newSize >= Math.pow(2, 7 * sizeLen) - 1) sizeLen++;
+        const head = new Uint8Array([...u8.subarray(p, p + e.len), ...encSize(newSize, sizeLen)]);
+        const delta = head.length + newSize - (e.len + s2.len + s2.value);
+        let prefix = u8.subarray(0, p);
+        if (!seg.unknown) {                                             // Segmentgrösse anpassen
+          prefix = new Uint8Array(prefix);
+          prefix.set(encSize(seg.value + delta, seg.len), segSizePos);
+        }
+        const out = new Uint8Array(u8.length + delta);
+        let o = 0;
+        for (const part of [prefix, head, u8.subarray(dataStart, dataEnd), dur, u8.subarray(dataEnd)]) {
+          out.set(part, o); o += part.length;
+        }
+        return out;
+      }
+      if (s2.unknown) return bytes;
+      p += e.len + s2.len + s2.value;
+    }
+  } catch (err) { /* unbekannter Aufbau: unverändert lassen */ }
+  return bytes;
+}
+
+let cmpAudioCtx = null;
+function cmpGetAudioCtx() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  if (!cmpAudioCtx || cmpAudioCtx.state === 'closed') cmpAudioCtx = new AC();
+  if (cmpAudioCtx.state === 'suspended') cmpAudioCtx.resume();
+  return cmpAudioCtx;
+}
+
+function waitFor(target, okEvent, ms) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => { off(); reject(new Error('Zeitüberschreitung beim Lesen der Datei')); }, ms);
+    const ok = () => { off(); resolve(); };
+    const bad = () => { off(); reject(new Error('Format wird von diesem Browser nicht unterstützt')); };
+    const off = () => { clearTimeout(t); target.removeEventListener(okEvent, ok); target.removeEventListener('error', bad); };
+    target.addEventListener(okEvent, ok);
+    target.addEventListener('error', bad);
+  });
+}
+
+/* opt: { kind: 'video'|'audio', seconds, startMode: 'anfang'|'mitte', edge, withAudio } */
+async function mediaClip(blob, opt) {
+  const url = URL.createObjectURL(blob);
+  const el = document.createElement(opt.kind === 'video' ? 'video' : 'audio');
+  el.preload = 'auto';
+  el.playsInline = true;
+  el.crossOrigin = 'anonymous';
+  let rec = null, srcNode = null, gain = null, stopTimer = null, stopped = false;
+  const cleanup = () => {
+    stopped = true;
+    clearTimeout(stopTimer);
+    try { el.pause(); } catch (e) { /* egal */ }
+    try { srcNode && srcNode.disconnect(); gain && gain.disconnect(); } catch (e) { /* egal */ }
+    el.removeAttribute('src'); el.load();
+    URL.revokeObjectURL(url);
+  };
+  try {
+    el.src = url;
+    await waitFor(el, 'loadedmetadata', 15000);
+    const total = Number.isFinite(el.duration) ? el.duration : 0;
+    let kind = opt.kind;
+    if (kind === 'video' && !el.videoWidth) kind = 'audio';   // z.B. WebM nur mit Ton
+    const start = opt.startMode === 'mitte' && total > opt.seconds ? (total - opt.seconds) / 2 : 0;
+    const len = total ? Math.min(opt.seconds, total - start) : opt.seconds;
+    if (start > 0) { el.currentTime = start; await waitFor(el, 'seeked', 15000); }
+    else if (el.readyState < 2) await waitFor(el, 'loadeddata', 15000);
+
+    const mime = recorderMime(kind);
+    if (!mime) throw new Error('Dieser Browser kann keine Ausschnitte aufnehmen (Chrome, Edge oder Firefox verwenden)');
+
+    const stream = new MediaStream();
+    let w = 0, h = 0, canvas = null, ctx2d = null;
+    if (kind === 'video') {
+      const scale = Math.min(1, opt.edge / Math.max(el.videoWidth, el.videoHeight));
+      w = Math.max(2, Math.round(el.videoWidth * scale / 2) * 2);
+      h = Math.max(2, Math.round(el.videoHeight * scale / 2) * 2);
+      canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      ctx2d = canvas.getContext('2d');
+      ctx2d.drawImage(el, 0, 0, w, h);
+      canvas.captureStream(15).getVideoTracks().forEach(t => stream.addTrack(t));
+    }
+    const withAudio = kind === 'audio' || opt.withAudio;
+    const actx = withAudio ? cmpGetAudioCtx() : null;
+    if (withAudio && actx) {
+      // Ton läuft nur in die Aufnahme, nicht aus dem Lautsprecher
+      srcNode = actx.createMediaElementSource(el);
+      gain = actx.createGain();
+      const dest = actx.createMediaStreamDestination();
+      srcNode.connect(gain).connect(dest);
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+      const t0 = actx.currentTime, fade = Math.min(0.3, len / 4);
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(1, t0 + fade);
+      gain.gain.setValueAtTime(1, t0 + Math.max(fade, len - fade));
+      gain.gain.linearRampToValueAtTime(0, t0 + len);
+    } else {
+      el.muted = true;
+    }
+    if (!stream.getTracks().length) throw new Error('Keine Bild- oder Tonspur gefunden');
+
+    const chunks = [];
+    rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 220000, audioBitsPerSecond: 40000 });
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const finished = new Promise(res => { rec.onstop = res; });
+
+    const draw = () => {
+      if (stopped || !ctx2d) return;
+      ctx2d.drawImage(el, 0, 0, w, h);
+      if (el.requestVideoFrameCallback) el.requestVideoFrameCallback(draw);
+      else requestAnimationFrame(draw);
+    };
+    rec.start(250);
+    const recStart = performance.now();
+    try {
+      await el.play();
+    } catch (e) {
+      if (!withAudio) throw e;
+      el.muted = true;          // Ton nicht erlaubt: ohne Ton weiter
+      await el.play();
+    }
+    draw();
+    const stop = () => {
+      if (rec.state !== 'inactive') { try { rec.requestData(); } catch (e) { /* egal */ } rec.stop(); }
+      stopped = true;
+      el.pause();
+    };
+    el.addEventListener('ended', stop, { once: true });
+    el.addEventListener('timeupdate', () => { if (el.currentTime >= start + len) stop(); });
+    stopTimer = setTimeout(stop, len * 1000 + 1500);
+    await finished;
+
+    let out = new Blob(chunks, { type: mime.split(';')[0] });
+    if (!out.size) throw new Error('Aufnahme ist leer');
+    if (mime.includes('webm')) {
+      const ms = Math.min(performance.now() - recStart, len * 1000 + 300);
+      out = new Blob([fixWebmDuration(new Uint8Array(await out.arrayBuffer()), ms)], { type: out.type });
+    }
+    return { blob: out, ext: mimeExt(mime), kind, w, h,
+      duration: Math.round(total * 10) / 10, clip: Math.round(len * 10) / 10 };
+  } finally {
+    cleanup();
+  }
+}
+
+/* ------------------------------------------------------------
    Fiktive Beispiel-Rohdaten (eigene Grafiken, keine echten
    Spielinhalte): Skins, Rucksäcke, Tänze und eine Item-Liste
    ------------------------------------------------------------ */
@@ -220,8 +442,109 @@ async function buildDemoFiles(onProgress) {
   const cf = new File([csv.join('\n') + '\n'], 'items.csv', { type: 'text/csv' });
   cf.relPath = 'items.csv';
   files.push(cf);
+
+  // Sounds als WAV (gross, unkomprimiert - wie echte Rohdaten)
+  for (const [name, notes, bpm] of [
+    ['Sieges-Jingle', [523, 659, 784, 1047, 784, 1047, 1319], 150],
+    ['Emote-Beat', [220, 0, 330, 0, 262, 294, 0, 392], 120]]) {
+    files.push(Object.assign(new File([await synthWav(notes, bpm, 12)], name + '.wav', { type: 'audio/wav' }),
+      { relPath: 'sounds/' + name + '.wav' }));
+  }
+  // Tanz-Videos (werden live aufgenommen, darum parallel)
+  if (recorderMime('video')) {
+    const vids = await Promise.all(['Robo-Wackler', 'Disco-Kreisel'].map((n, i) => recordDanceVideo(n, i, 6)));
+    vids.forEach((b, i) => { if (b) {
+      const n = ['Robo-Wackler', 'Disco-Kreisel'][i];
+      files.push(Object.assign(new File([b], n + '.webm', { type: 'video/webm' }), { relPath: 'taenze/' + n + '.webm' }));
+    } });
+  }
   onProgress(1);
   return files;
+}
+
+/* Kleine Melodie als 16-bit-WAV (mono, 44.1 kHz) */
+async function synthWav(notes, bpm, seconds) {
+  const rate = 44100, OAC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const ctx = new OAC(1, rate * seconds, rate);
+  const beat = 60 / bpm;
+  for (let t = 0, i = 0; t < seconds - beat; t += beat, i++) {
+    const f = notes[i % notes.length];
+    if (!f) continue;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = i % 2 ? 'square' : 'triangle';
+    o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + beat * 0.9);
+    o.connect(g).connect(ctx.destination);
+    o.start(t); o.stop(t + beat);
+  }
+  const buf = await ctx.startRendering();
+  const pcm = buf.getChannelData(0);
+  const out = new DataView(new ArrayBuffer(44 + pcm.length * 2));
+  const str = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+  str(0, 'RIFF'); out.setUint32(4, 36 + pcm.length * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+  out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+  out.setUint32(24, rate, true); out.setUint32(28, rate * 2, true); out.setUint16(32, 2, true);
+  out.setUint16(34, 16, true); str(36, 'data'); out.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i++) out.setInt16(44 + i * 2, Math.max(-1, Math.min(1, pcm[i])) * 0x7FFF, true);
+  return new Blob([out.buffer], { type: 'audio/wav' });
+}
+
+/* Tanzende Figur als Video aufnehmen (640x640, mit Beat) */
+async function recordDanceVideo(name, seed, seconds) {
+  const size = 640, c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const stream = c.captureStream(30);
+  const actx = cmpGetAudioCtx();
+  let osc = null;
+  if (actx) {
+    const dest = actx.createMediaStreamDestination(), g = actx.createGain();
+    osc = actx.createOscillator();
+    osc.type = 'square'; osc.frequency.value = seed ? 196 : 147;
+    g.gain.value = 0;
+    const t0 = actx.currentTime;
+    for (let t = 0; t < seconds; t += 0.25) {
+      g.gain.setValueAtTime(0.12, t0 + t);
+      g.gain.setTargetAtTime(0, t0 + t + 0.02, 0.04);
+    }
+    osc.connect(g).connect(dest);
+    osc.start();
+    dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+  }
+  const mime = recorderMime('video');
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 2500000 });
+  const chunks = [];
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  const done = new Promise(r => { rec.onstop = r; });
+  const t0 = performance.now();
+  const frame = () => {
+    const t = (performance.now() - t0) / 1000;
+    const hue = (seed * 140 + t * 40) % 360;
+    ctx.fillStyle = `hsl(${hue},70%,18%)`; ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < 6; i++) {
+      ctx.fillStyle = `hsla(${(hue + i * 60) % 360},90%,60%,.35)`;
+      ctx.beginPath(); ctx.arc(size / 2 + Math.cos(t * 2 + i) * 220, size / 2 + Math.sin(t * 3 + i) * 220, 40, 0, 7); ctx.fill();
+    }
+    const sw = Math.sin(t * Math.PI * 4), cx = size / 2 + sw * 40;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 16; ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(cx, 190, 44, 0, 7);
+    ctx.moveTo(cx, 236); ctx.lineTo(size / 2, 380);
+    ctx.moveTo(cx, 270); ctx.lineTo(cx - 90, 230 + sw * 70);
+    ctx.moveTo(cx, 270); ctx.lineTo(cx + 90, 230 - sw * 70);
+    ctx.moveTo(size / 2, 380); ctx.lineTo(size / 2 - 70, 500 + sw * 20);
+    ctx.moveTo(size / 2, 380); ctx.lineTo(size / 2 + 70, 500 - sw * 20);
+    ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 40px system-ui, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(name, size / 2, 590);
+    if (t < seconds) requestAnimationFrame(frame); else { rec.stop(); if (osc) osc.stop(); }
+  };
+  rec.start(250);
+  frame();
+  await done;
+  return chunks.length ? new Blob(chunks, { type: 'video/webm' }) : null;
 }
 
 /* ------------------------------------------------------------
@@ -237,6 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
     project: $('cmpProject'), edge: $('cmpEdge'), format: $('cmpFormat'), quality: $('cmpQuality'),
     qualityVal: $('cmpQualityVal'), video: $('cmpVideo'), maxOther: $('cmpMaxOther'),
     perFolder: $('cmpPerFolder'), info: $('cmpInfo'),
+    audio: $('cmpAudio'), clipLen: $('cmpClipLen'), clipStart: $('cmpClipStart'), clipSound: $('cmpClipSound'),
     baseDrop: $('cmpBaseDrop'), baseInput: $('cmpBaseInput'), basePreview: $('cmpBasePreview'),
     baseName: $('cmpBaseName'), baseRemove: $('cmpBaseRemove'),
     run: $('cmpRun'), inputCard: $('cmpInputCard'), progressCard: $('cmpProgressCard'),
@@ -263,12 +587,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function describe(items) {
-    const k = { image: 0, gif: 0, video: 0, text: 0, other: 0 };
+    const k = { image: 0, gif: 0, video: 0, audio: 0, text: 0, other: 0 };
     let size = 0;
     for (const it of items) { k[cmpKind(it.path)]++; size += it.size; }
     const parts = [];
     if (k.image + k.gif) parts.push((k.image + k.gif) + ' Bilder');
     if (k.video) parts.push(k.video + ' Videos');
+    if (k.audio) parts.push(k.audio + ' Audio');
     if (k.text) parts.push(k.text + ' Textdateien');
     if (k.other) parts.push(k.other + ' andere');
     return items.length.toLocaleString('de-CH') + ' Dateien (' + parts.join(', ') + ') - ' + formatFileSize(size);
@@ -430,6 +755,10 @@ document.addEventListener('DOMContentLoaded', () => {
       format: el.format.value,
       quality: parseInt(el.quality.value, 10) / 100,
       video: el.video.value,
+      audio: el.audio.value,
+      clipSeconds: parseInt(el.clipLen.value, 10),
+      clipStart: el.clipStart.value,
+      clipSound: el.clipSound.checked,
       maxOther: parseInt(el.maxOther.value, 10),
       perFolder: Math.max(0, parseInt(el.perFolder.value, 10) || 0),
       info: el.info.checked
@@ -437,7 +766,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fmtExt = { 'image/webp': 'webp', 'image/jpeg': 'jpg', 'image/png': 'png' };
 
     const zip = new ZipWriter();
-    const stats = { inBytes: 0, outBytes: 0, files: 0, images: 0, posters: 0, kept: 0, copied: 0 };
+    const stats = { inBytes: 0, outBytes: 0, files: 0, images: 0, posters: 0, clips: 0, audios: 0, kept: 0, copied: 0 };
     const skipped = [];
     const manifest = [];
 
@@ -475,75 +804,135 @@ document.addEventListener('DOMContentLoaded', () => {
         return rel.split('/').filter(s => s && s !== '.' && s !== '..').join('/');
       };
 
-      // 3) Dateien verarbeiten
-      const started = performance.now();
-      for (let i = 0; i < items.length; i++) {
-        if (cancelled) throw new Error('abgebrochen');
-        const it = items[i];
-        const kind = cmpKind(it.path);
-        let target = targetOf(it);
-        el.current.textContent = '📄 ' + it.path;
-        const pct = 20 + Math.round(i / items.length * 78);
-        const el2 = (performance.now() - started) / 1000;
-        setProgress(base ? pct : Math.round(i / items.length * 98), 'Verkleinere Dateien …',
-          (i + 1) + ' / ' + items.length + ' Dateien' +
-          (el2 > 2 && i > 0 ? ' - noch ca. ' + formatDuration(el2 / i * (items.length - i)) : ''));
-        if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
+      // 3) Dateien verarbeiten. Ein Element kann mehrere Ausgaben liefern
+      //    (z.B. Kurzclip + Vorschaubild). Clips laufen in Echtzeit, darum
+      //    bis zu 3 gleichzeitig; ZIP-Einträge werden der Reihe nach geschrieben.
+      const tooBig = it => opt.maxOther && it.size > opt.maxOther;
+      const sizeNote = () => 'grösser als ' + formatFileSize(opt.maxOther);
 
+      async function imageOut(blob, it, target) {
+        const r = await shrinkImage(blob, opt.edge, opt.format, opt.quality);
+        const keepOriginal = r.blob.size >= blob.size && r.w <= opt.edge && r.h <= opt.edge &&
+          !['jpg', 'jpeg'].includes(cmpExt(it.path));
+        stats.images++;
+        return keepOriginal
+          ? { name: target, data: blob, note: { breite: r.w, hoehe: r.h } }
+          : { name: changeExt(target, fmtExt[r.blob.type] || 'jpg'), data: r.blob,
+              note: { breite: r.cw, hoehe: r.ch, original_breite: r.w, original_hoehe: r.h } };
+      }
+
+      async function processItem(it, kind, target) {
+        const blob = await it.getBlob();
+        if (kind === 'image') return [await imageOut(blob, it, target)];
+        if (kind === 'gif') {
+          if (opt.video === 'skip') throw new Error('GIF übersprungen');
+          if ((opt.video === 'keep' || opt.video.startsWith('clip')) && !tooBig(it)) {
+            stats.kept++;
+            return [{ name: target, data: blob }];
+          }
+          if (opt.video === 'keep') throw new Error(sizeNote());
+          return [await imageOut(blob, it, target)];   // erstes Bild des GIFs
+        }
+        if (kind === 'video') {
+          if (opt.video === 'skip') throw new Error('Video übersprungen');
+          if (opt.video === 'keep') {
+            if (tooBig(it)) throw new Error(sizeNote());
+            stats.kept++;
+            return [{ name: target, data: blob }];
+          }
+          const outs = [];
+          if (opt.video.startsWith('clip')) {
+            const r = await mediaClip(blob, { kind: 'video', seconds: opt.clipSeconds, startMode: opt.clipStart,
+              edge: opt.edge, withAudio: opt.clipSound });
+            stats.clips++;
+            outs.push({ name: changeExt(target, 'clip.' + r.ext), data: r.blob,
+              note: { breite: r.w, hoehe: r.h, dauer_s: r.duration, clip_s: r.clip, art: 'Kurzclip aus Video' } });
+          }
+          if (opt.video === 'poster' || opt.video === 'clippost') {
+            const r = await videoPoster(blob, opt.edge, opt.format, opt.quality);
+            stats.posters++;
+            outs.push({ name: changeExt(target, 'vorschau.' + (fmtExt[r.blob.type] || 'jpg')), data: r.blob,
+              note: { breite: r.cw, hoehe: r.ch, dauer_s: r.duration, art: 'Vorschaubild aus Video' } });
+          }
+          return outs;
+        }
+        if (kind === 'audio') {
+          if (opt.audio === 'skip') throw new Error('Audio übersprungen');
+          if (opt.audio === 'keep') {
+            if (tooBig(it)) throw new Error(sizeNote());
+            stats.kept++;
+            return [{ name: target, data: blob }];
+          }
+          const r = await mediaClip(blob, { kind: 'audio', seconds: opt.clipSeconds, startMode: opt.clipStart });
+          stats.audios++;
+          return [{ name: changeExt(target, 'clip.' + r.ext), data: r.blob,
+            note: { dauer_s: r.duration, clip_s: r.clip, art: 'Ausschnitt aus Audio' } }];
+        }
+        if (tooBig(it)) throw new Error(sizeNote());
+        stats.kept++;
+        return [{ name: target, data: blob, deflate: true }];
+      }
+
+      // Pro Ordner höchstens opt.perFolder Dateien (in sortierter Reihenfolge)
+      const jobs = [];
+      for (const it of items) {
+        const target = targetOf(it);
         const dir = target.slice(0, target.lastIndexOf('/') + 1);
         if (opt.perFolder) {
           const n = perFolderCount.get(dir) || 0;
           if (n >= opt.perFolder) { skipped.push([it.path, 'Ordnerlimit (' + opt.perFolder + ')']); continue; }
+          perFolderCount.set(dir, n + 1);
         }
-
-        let out = null, note = {};
-        try {
-          const blob = await it.getBlob();
-          if (kind === 'image' || (kind === 'gif' && opt.video === 'poster')) {
-            const r = await shrinkImage(blob, opt.edge, opt.format, opt.quality);
-            const keepOriginal = r.blob.size >= blob.size && r.w <= opt.edge && r.h <= opt.edge &&
-              !['jpg', 'jpeg'].includes(cmpExt(it.path));
-            if (keepOriginal) out = new Uint8Array(await blob.arrayBuffer());
-            else {
-              out = new Uint8Array(await r.blob.arrayBuffer());
-              target = changeExt(target, fmtExt[r.blob.type] || 'jpg');
-            }
-            note = { breite: r.cw, hoehe: r.ch, original_breite: r.w, original_hoehe: r.h };
-            stats.images++;
-          } else if (kind === 'video' || kind === 'gif') {
-            if (opt.video === 'skip') { skipped.push([it.path, 'Video übersprungen']); continue; }
-            if (opt.video === 'keep') {
-              if (opt.maxOther && it.size > opt.maxOther) { skipped.push([it.path, 'grösser als ' + formatFileSize(opt.maxOther)]); continue; }
-              out = new Uint8Array(await blob.arrayBuffer());
-              stats.kept++;
-            } else {
-              const r = await videoPoster(blob, opt.edge, opt.format, opt.quality);
-              out = new Uint8Array(await r.blob.arrayBuffer());
-              target = changeExt(target, 'vorschau.' + (fmtExt[r.blob.type] || 'jpg'));
-              note = { breite: r.cw, hoehe: r.ch, dauer_s: r.duration, art: 'Vorschaubild aus Video' };
-              stats.posters++;
-            }
-          } else {
-            if (opt.maxOther && it.size > opt.maxOther) { skipped.push([it.path, 'grösser als ' + formatFileSize(opt.maxOther)]); continue; }
-            out = new Uint8Array(await blob.arrayBuffer());
-            stats.kept++;
-          }
-        } catch (err) {
-          skipped.push([it.path, err.message]);
-          continue;
-        }
-
-        // Namenskonflikte (z.B. a.png und a.jpg -> a.webp) auflösen
-        let unique = target, n = 2;
-        while (zip.has(unique)) unique = changeExt(target, '').replace(/\.$/, '') + '_' + (n++) + '.' + cmpExt(target);
-        const compressible = !['image', 'gif', 'video'].includes(kind);
-        await zip.add(unique, out, { deflate: compressible });
-        perFolderCount.set(dir, (perFolderCount.get(dir) || 0) + 1);
-        stats.files++;
-        stats.inBytes += it.size;
-        stats.outBytes += out.length;
-        manifest.push(Object.assign({ pfad: '/' + unique, quelle: it.path, groesse_vorher: it.size, groesse_nachher: out.length }, note));
+        jobs.push({ it, kind: cmpKind(it.path), target });
       }
+
+      const slow = j => j.kind === 'audio' || (j.kind === 'video' && opt.video.startsWith('clip'));
+      const nSlow = jobs.filter(slow).length;
+      let writeChain = Promise.resolve(), doneCount = 0;
+      const started = performance.now();
+      const progress = (label) => {
+        const el2 = (performance.now() - started) / 1000;
+        const pct = Math.round(doneCount / Math.max(1, jobs.length) * (base ? 78 : 98)) + (base ? 20 : 0);
+        setProgress(pct, nSlow ? 'Verkleinere Dateien und schneide Clips …' : 'Verkleinere Dateien …',
+          doneCount + ' / ' + jobs.length + ' Dateien' +
+          (el2 > 3 && doneCount > 0 ? ' - noch ca. ' + formatDuration(el2 / doneCount * (jobs.length - doneCount)) : ''));
+        if (label) el.current.textContent = label;
+      };
+      const write = (job, outs) => {
+        writeChain = writeChain.then(async () => {
+          for (const o of outs) {
+            const data = o.data instanceof Uint8Array ? o.data : new Uint8Array(await o.data.arrayBuffer());
+            let unique = o.name, n = 2;
+            while (zip.has(unique)) unique = changeExt(o.name, '').replace(/\.$/, '') + '_' + (n++) + '.' + cmpExt(o.name);
+            await zip.add(unique, data, { deflate: !!o.deflate });
+            stats.files++;
+            stats.outBytes += data.length;
+            manifest.push(Object.assign({ pfad: '/' + unique, quelle: job.it.path,
+              groesse_vorher: job.it.size, groesse_nachher: data.length }, o.note || {}));
+          }
+          stats.inBytes += job.it.size;
+        });
+        return writeChain;
+      };
+
+      async function worker(queue) {
+        while (queue.length) {
+          if (cancelled) throw new Error('abgebrochen');
+          const job = queue.shift();
+          progress((slow(job) ? '🎬 Clip: ' : '📄 ') + job.it.path);
+          try {
+            await write(job, await processItem(job.it, job.kind, job.target));
+          } catch (err) {
+            skipped.push([job.it.path, err.message]);
+          }
+          doneCount++;
+          progress();
+          await new Promise(r => setTimeout(r, 0));
+        }
+      }
+      const fastQ = jobs.filter(j => !slow(j)), slowQ = jobs.filter(slow);
+      await Promise.all([worker(fastQ), worker(slowQ), worker(slowQ), worker(slowQ)]);
+      await writeChain;
 
       if (!stats.files && !stats.copied) throw new Error('Keine Datei konnte übernommen werden.');
 
@@ -600,7 +989,9 @@ document.addEventListener('DOMContentLoaded', () => {
     $('cmpResSaved').textContent = saved + ' %';
     const facts = [
       ['🖼️', 'Bilder verkleinert', String(stats.images)],
-      ['🎬', 'Vorschaubilder aus Videos', String(stats.posters)],
+      ['🎬', 'Kurzclips aus Videos', String(stats.clips)],
+      ['🎵', 'Audio-Ausschnitte', String(stats.audios)],
+      ['🖼️', 'Vorschaubilder aus Videos', String(stats.posters)],
       ['📄', 'Unverändert übernommen', String(stats.kept)],
       ['📦', 'Aus Basis-ZIP übernommen', String(stats.copied)],
       ['🗜️', 'ZIP-Datei', file.name + ' (' + formatFileSize(file.size) + ')']

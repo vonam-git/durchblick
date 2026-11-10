@@ -37,7 +37,7 @@ Bewusst **nicht** abgedeckt: Durchblick hat keine Benutzerverwaltung. Der Query-
 4. `bandit` (statische Analyse Python, Schwelle Medium)
 5. `pip-audit` (bekannte Schwachstellen in Abhängigkeiten)
 
-Stand bei Version 2.0: alle Tests grün, bandit ohne Befund ab Medium (verbleibende Low-Hinweise betreffen den bewussten Start des Webservers per `subprocess` im Panel), pip-audit ohne bekannte Schwachstellen.
+Stand bei Version 2.1: alle Tests grün, bandit ohne Befund ab Medium (verbleibende Low-Hinweise betreffen den bewussten Start des Webservers per `subprocess` im Panel), pip-audit ohne bekannte Schwachstellen.
 
 ## Sicherheitslücke melden
 

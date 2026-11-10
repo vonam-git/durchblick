@@ -44,7 +44,7 @@ except ModuleNotFoundError as exc:  # z. B. PyYAML fehlt
     db = None
     IMPORT_ERROR = exc
 
-APP_VERSION = "2.0"
+APP_VERSION = "2.1"
 APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 FROZEN = bool(getattr(sys, "frozen", False))   # installierte Version (PyInstaller)
 WEB_SCRIPT = APP_DIR / "durchblick_web.py"

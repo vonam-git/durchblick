@@ -80,8 +80,8 @@ browse:
 gallery:
   # Bind-Parameter 1: path-pattern (LIKE), Bind-Parameter 2: limit
   # Benötigte Spalten: «digest» und «path», empfohlen zusätzlich «type».
-  # Es werden nur Zeilen angezeigt, deren type mit «image/» beginnt.
-  sql_gallery_bind: "select digest, path, type from Meta where type like 'image/%' and path like ? order by path limit ?;"
+  # Angezeigt werden Bilder (image/…), Videoclips (video/…) und Audio (audio/…).
+  sql_gallery_bind: "select digest, path, type from Meta where (type like 'image/%' or type like 'video/%' or type like 'audio/%') and path like ? order by path limit ?;"
 
 # Daten-Detailseite
 data:

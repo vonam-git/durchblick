@@ -22,7 +22,7 @@ Diese Anleitung führt dich Schritt für Schritt von deinen eigenen Rohdaten bis
 
 ## 0. Installieren und starten
 
-**Windows:** `Durchblick-Setup-2.0.exe` von den [Releases](https://github.com/vonam-git/durchblick/releases/latest) herunterladen, doppelklicken, installieren. Bei der Warnung «Der Computer wurde durch Windows geschützt»: **Weitere Informationen** → **Trotzdem ausführen**. Danach **Durchblick** im Startmenü öffnen.
+**Windows:** `Durchblick-Setup-2.1.exe` von den [Releases](https://github.com/vonam-git/durchblick/releases/latest) herunterladen, doppelklicken, installieren. Bei der Warnung «Der Computer wurde durch Windows geschützt»: **Weitere Informationen** → **Trotzdem ausführen**. Danach **Durchblick** im Startmenü öffnen.
 
 **macOS / Linux:** Repository herunterladen und `Durchblick-starten.command` doppelklicken (siehe [README](../README.md#installation)).
 
@@ -46,7 +46,8 @@ Lege einen Ordner an, zum Beispiel so:
 mein_game/
 ├── skins/          Bilder der Skins (PNG, JPG, WebP …)
 ├── rucksaecke/     Bilder der Rucksäcke
-├── taenze/         kurze Videos oder GIFs der Tänze, dazu taenze.json
+├── taenze/         Videos oder GIFs der Tänze, dazu taenze.json
+├── sounds/         Sounds oder Musik (MP3, WAV, OGG …)
 └── items.csv       Liste mit Name, Seltenheit, Preis …
 ```
 
@@ -55,7 +56,7 @@ Tipps:
 - Eine kleine Textdatei mit Zusatzinfos (JSON oder CSV) macht spätere Abfragen spannender.
 - **Nur Material verwenden, das du im Unterricht verwenden darfst** (siehe [Datenschutz](DATENSCHUTZ.md)). Keine Fotos von Personen ohne Einverständnis.
 
-> 🎲 Keine eigenen Daten zur Hand? Klicke in der Werkstatt auf **«Beispiel-Rohdaten erzeugen»**. Das erstellt einen fiktiven «Game-Shop» mit 12 Skins, 8 Rucksäcken, einer Tanzliste und einer Item-Liste (rund 16 MB).
+> 🎲 Keine eigenen Daten zur Hand? Klicke in der Werkstatt auf **«Beispiel-Rohdaten erzeugen»**. Das erstellt einen fiktiven «Game-Shop» mit 12 Skins, 8 Rucksäcken, 2 Tanz-Videos, 2 Sounds, einer Tanzliste und einer Item-Liste (rund 20 MB, dauert ca. 10 Sekunden).
 
 ### 1.2 Verkleinern
 
@@ -70,14 +71,16 @@ Tipps:
 | Projektname | z.B. `game_shop` | wird zum Ordnernamen |
 | Bilder: längste Seite | 256 px | reicht für die Galerie, spart enorm Platz |
 | Bildformat | WebP | klein und mit Transparenz |
-| Videos und GIFs | Vorschaubild erzeugen | ein Video wäre viel zu gross für die CSV |
+| Videos | Kurzclip | aus jedem Video wird ein kleiner 5-Sekunden-Clip (WebM, ca. 80 KB) – ein ganzes Video wäre viel zu gross für die CSV |
+| Audio | Ausschnitt | 5 Sekunden mit Ein- und Ausblenden (Opus, ca. 20 KB) |
+| Länge / Beginn | 5 Sekunden, am Anfang | bei Musik ist «in der Mitte» oft spannender |
 | Maximalgrösse übrige Dateien | 200 KB | grössere Dateien werden übersprungen und aufgelistet |
 | Dateien pro Ordner | z.B. 20 | wenn du sehr viele Bilder hast |
 
 4. Optional: Hast du von deiner Lehrperson ein **Rohdaten-ZIP** erhalten, wähle es unter «bestehendes Rohdaten-ZIP ergänzen». Dann kommen deine Dateien in dasselbe Archiv.
 5. **🗜️ Rohdaten verkleinern** klicken.
 
-Das Ergebnis zeigt, wie viel Platz du gespart hast (beim Beispiel: 16 MB → etwa 70 KB). Im ZIP liegen zusätzlich `_info.json` (alle Dateien mit Grösse und Bildmassen) und `LIESMICH.txt`. **Trage in der LIESMICH.txt die Quelle deiner Daten ein.**
+Das Ergebnis zeigt, wie viel Platz du gespart hast (beim Beispiel: 20 MB → etwa 270 KB). Clips werden in Echtzeit aufgenommen – lass das Browserfenster dabei offen und im Vordergrund. Im ZIP liegen zusätzlich `_info.json` (alle Dateien mit Grösse und Bildmassen) und `LIESMICH.txt`. **Trage in der LIESMICH.txt die Quelle deiner Daten ein.**
 
 > 💡 **Nachdenken:** Warum ist ein Bild in der CSV etwa ein Drittel grösser als die Datei selbst? (Stichwort: Base64)
 
@@ -188,11 +191,11 @@ Kontrolle: `SELECT count(*) FROM Rohdaten;` muss gleich viele Zeilen liefern, wi
 4. Queries an dein Schema anpassen, bis überall **OK** steht.
 5. In der Weboberfläche alle Reiter durchgehen: **keine Emojis mehr = geschafft!** 🎉
 
-Für die **Galerie** brauchst du die Query `gallery.sql_gallery_bind`. Sie muss `digest`, `path` und am besten `type` liefern:
+Für die **Galerie** brauchst du die Query `gallery.sql_gallery_bind`. Sie muss `digest`, `path` und am besten `type` liefern. Angezeigt werden Bilder, Videoclips (spielen beim Darüberfahren) und Audio:
 
 ```yaml
 gallery:
-  sql_gallery_bind: "select digest, path, type from Meta where type like 'image/%' and path like ? order by path limit ?;"
+  sql_gallery_bind: "select digest, path, type from Meta where (type like 'image/%' or type like 'video/%' or type like 'audio/%') and path like ? order by path limit ?;"
 ```
 
 Heissen deine Spalten anders, arbeite mit Aliasen (`select hash as digest, …`).

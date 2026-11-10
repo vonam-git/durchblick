@@ -1,5 +1,10 @@
 # Änderungen
 
+## 2.1 – Kurzclips aus Video und Audio
+
+- Werkstatt 1 nimmt aus Videos kleine Clips (3/5/10 s, skaliert, WebM mit Ton) und aus Audio Ausschnitte mit Ein-/Ausblenden (Opus) auf – direkt im Browser, bis zu drei gleichzeitig. Optional Clip + Vorschaubild, Start am Anfang oder in der Mitte. Beispiel-Rohdaten enthalten neu Tanz-Videos und Sounds. Die Galerie spielt Clips beim Darüberfahren ab, der Detaildialog hat einen Player. `/api/raw` unterstützt Range-Anfragen (Safari). Generator kennt neu `.weba`, `.m4a`, `.aac`, `.flac`, `.opus`, `.oga`, `.m4v`, `.ogv`.
+- Datenschutz: Auch in Clips werden Metadaten (GPS in Handy-Videos, Song-Tags) entfernt.
+
 ## 2.0 – Werkstatt, Galerie und Design
 
 **Neu**

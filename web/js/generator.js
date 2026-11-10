@@ -160,6 +160,8 @@ const MIME_MAP = {
   ico:'image/vnd.microsoft.icon', pdf:'application/pdf', zip:'application/zip',
   gz:'application/gzip', tar:'application/x-tar', '7z':'application/x-7z-compressed',
   rar:'application/rar', mp3:'audio/mpeg', wav:'audio/x-wav', ogg:'audio/ogg',
+  weba:'audio/webm', m4a:'audio/mp4', aac:'audio/aac', flac:'audio/flac', opus:'audio/ogg', oga:'audio/ogg',
+  m4v:'video/mp4', ogv:'video/ogg',
   mp4:'video/mp4', webm:'video/webm', mov:'video/quicktime', avi:'video/x-msvideo',
   py:'text/x-python', php:'application/x-httpd-php', sql:'application/sql',
   java:'text/x-java', c:'text/x-csrc', cpp:'text/x-c++src', h:'text/x-chdr',

@@ -4,7 +4,7 @@
 ; Erzeugt Durchblick-Setup-<Version>.exe aus dist\Durchblick
 ; (vorher: pyinstaller installer\durchblick.spec --noconfirm)
 ;
-;   iscc /DAppVersion=2.0 installer\durchblick.iss
+;   iscc /DAppVersion=2.1 installer\durchblick.iss
 ;
 ; - Installation pro Benutzer, KEINE Admin-Rechte nötig
 ;   (nach %LOCALAPPDATA%\Programs\Durchblick)
@@ -13,7 +13,7 @@
 ; ============================================================
 
 #ifndef AppVersion
-  #define AppVersion "2.0"
+  #define AppVersion "2.1"
 #endif
 
 [Setup]

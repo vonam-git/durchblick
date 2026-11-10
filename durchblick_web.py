@@ -29,7 +29,7 @@ from fastapi.staticfiles import StaticFiles
 import durchblick_db as db
 
 APP_NAME = "Durchblick"
-APP_VERSION = "2.0"
+APP_VERSION = "2.1"
 WEB_DIR = db.APP_DIR / "web"
 THEME_DIR = db.DATA_DIR / "theme"  # eigene Gestaltung (schreibbar)
 
@@ -77,6 +77,8 @@ SECURITY_HEADERS = {
 
 THEME_FILE_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,80}\.(css|png|jpe?g|webp|gif|svg|woff2?|ttf|otf)")
 DIGEST_MAX = 128
+GALLERY_TYPES = ("image/", "video/", "audio/")
+RANGE_RE = re.compile(r"bytes=(\d*)-(\d*)")
 TAG_MAX = 100
 PATTERN_MAX = 200
 
@@ -223,7 +225,8 @@ def api_browse(pattern: str = Query("%", max_length=PATTERN_MAX),
 @app.get("/api/gallery")
 def api_gallery(pattern: str = Query("%", max_length=PATTERN_MAX),
                 limit: int = Query(60, ge=1, le=500)):
-    """Bilder für die Galerie. Die Query muss mindestens «digest» und «path» liefern."""
+    """Bilder, Videos und Audio für die Galerie. Die Query muss mindestens «digest» und
+    «path» liefern, empfohlen zusätzlich «type»."""
     try:
         sql = db.get_query("gallery", "sql_gallery_bind")
         columns, rows = db.run_query(sql, [like_pattern(pattern), limit], commit=False)
@@ -238,7 +241,7 @@ def api_gallery(pattern: str = Query("%", max_length=PATTERN_MAX),
     items = []
     for r in rows:
         ctype = db.to_text(r[i_type]) if i_type is not None else ""
-        if ctype and not ctype.lower().startswith("image/"):
+        if ctype and not ctype.lower().startswith(GALLERY_TYPES):
             continue
         path = db.to_text(r[i_path])
         parts = [p for p in path.split("/") if p]
@@ -307,7 +310,7 @@ def api_settag(payload: dict = Body(...)):
 
 
 @app.get("/api/raw/{digest}")
-def api_raw(digest: str = PathParam(..., max_length=DIGEST_MAX)):
+def api_raw(request: Request, digest: str = PathParam(..., max_length=DIGEST_MAX)):
     """Dateiinhalt entpackt ausliefern. Content-Type kommt aus der Datenbank."""
     content_type = "text/plain"
     try:
@@ -324,10 +327,27 @@ def api_raw(digest: str = PathParam(..., max_length=DIGEST_MAX)):
         return Response(f"Durchblick: Inhalt konnte nicht geladen werden.\n{short_error(exc)}",
                         status_code=500, media_type="text/plain")
     # Inhalte stammen aus der Datenbank: im Browser nie ausführen lassen
-    return Response(content=data, media_type=content_type, headers={
-        "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'",
+    headers = {
+        "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self' data:; "
+                                   "media-src 'self'; style-src 'unsafe-inline'",
         "X-Content-Type-Options": "nosniff",
-        "Cache-Control": "private, max-age=60"})
+        "Cache-Control": "private, max-age=60",
+        "Accept-Ranges": "bytes"}
+    # Teilanfragen (Range) - Safari braucht sie zum Abspielen von Video und Audio
+    m = RANGE_RE.fullmatch(request.headers.get("range", "").strip())
+    if m and data and (m.group(1) or m.group(2)):
+        size = len(data)
+        if m.group(1):
+            start = int(m.group(1))
+            end = min(int(m.group(2)), size - 1) if m.group(2) else size - 1
+        else:  # bytes=-500: die letzten 500 Bytes
+            start, end = max(0, size - int(m.group(2))), size - 1
+        if start >= size or start > end:
+            return Response(status_code=416, headers={"Content-Range": f"bytes */{size}"})
+        headers["Content-Range"] = f"bytes {start}-{end}/{size}"
+        return Response(content=data[start:end + 1], status_code=206,
+                        media_type=content_type, headers=headers)
+    return Response(content=data, media_type=content_type, headers=headers)
 
 
 @app.get("/api/tags")

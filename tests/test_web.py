@@ -16,8 +16,8 @@ def test_status_and_author(client):
 def test_overview_counts(client):
     d = client.get("/api/overview").json()
     assert d["errors"] == {}
-    assert d["values"]["meta_count"] == 5
-    assert d["values"]["data_count"] == 4  # zwei Pfade teilen denselben Inhalt
+    assert d["values"]["meta_count"] == 7
+    assert d["values"]["data_count"] == 6  # zwei Pfade teilen denselben Inhalt
 
 
 def test_browse(client):
@@ -25,12 +25,35 @@ def test_browse(client):
     assert "digest" in d["columns"] and len(d["rows"]) == 2
 
 
-def test_gallery_only_images(client):
+def test_gallery_media_only(client):
     d = client.get("/api/gallery").json()
     assert "error" not in d
     names = sorted(i["name"] for i in d["items"])
-    assert names == ["evil.svg", "kopie.png", "neon_ninja.png"]
-    assert {i["folder"] for i in d["items"]} == {"skins", "game_shop"}
+    assert names == ["beat.clip.weba", "evil.svg", "kopie.png", "neon_ninja.png", "robo.clip.webm"]
+    assert {i["folder"] for i in d["items"]} == {"skins", "game_shop", "taenze", "sounds"}
+    assert {i["type"].split("/")[0] for i in d["items"]} == {"image", "video", "audio"}
+
+
+def _digest(client, name):
+    return next(i["digest"] for i in client.get("/api/gallery").json()["items"] if i["name"] == name)
+
+
+def test_raw_range_requests(client):
+    dig = _digest(client, "robo.clip.webm")
+    full = client.get(f"/api/raw/{dig}")
+    assert full.headers["accept-ranges"] == "bytes" and len(full.content) == 1024
+    r = client.get(f"/api/raw/{dig}", headers={"Range": "bytes=0-99"})
+    assert r.status_code == 206 and r.content == full.content[:100]
+    assert r.headers["content-range"] == "bytes 0-99/1024"
+    r = client.get(f"/api/raw/{dig}", headers={"Range": "bytes=1000-"})
+    assert r.status_code == 206 and r.content == full.content[1000:]
+    r = client.get(f"/api/raw/{dig}", headers={"Range": "bytes=-24"})
+    assert r.status_code == 206 and r.content == full.content[-24:]
+    r = client.get(f"/api/raw/{dig}", headers={"Range": "bytes=5000-"})
+    assert r.status_code == 416
+    r = client.get(f"/api/raw/{dig}", headers={"Range": "unsinn"})
+    assert r.status_code == 200 and len(r.content) == 1024
+    assert "sandbox" in r.headers["content-security-policy"]
 
 
 def test_raw_image_and_sandbox(client):
@@ -63,7 +86,7 @@ def test_settag_rejects_foreign_origin(client):
 
 
 def test_settag_and_tags(client):
-    digest = client.get("/api/gallery").json()["items"][0]["digest"]
+    digest = _digest(client, "neon_ninja.png")
     r = client.post("/api/settag", json={"digest": digest, "tag": "skin"},
                     headers={**H, "Origin": "http://127.0.0.1:3000"})
     assert r.json() == {"ok": True}

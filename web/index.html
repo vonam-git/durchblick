@@ -91,7 +91,7 @@
 <!-- ===================================================== GALERIE -->
 <section class="tab" id="tab-gallery">
   <h2>Galerie</h2>
-  <p class="lead">Alle Bilder aus der Datenbank, direkt aus der Tabelle gelesen und entpackt. Die Query dafür steht in der Config unter <code>gallery: sql_gallery_bind</code>.</p>
+  <p class="lead">Alle Bilder, Videoclips und Audiodateien aus der Datenbank, direkt aus der Tabelle gelesen und entpackt. Die Query dafür steht in der Config unter <code>gallery: sql_gallery_bind</code>.</p>
   <div class="toolbar">
     <input type="text" id="gal-pattern" value="%" placeholder="Pfad-Muster, z.B. %skins%" aria-label="Pfad-Muster" maxlength="200">
     <input type="number" id="gal-limit" value="60" min="1" max="500" style="width:90px" aria-label="Anzahl">
@@ -123,7 +123,7 @@
   <div id="viewCompress">
     <div class="card" id="cmpInputCard">
       <h2>🗜️ Rohdaten vorbereiten</h2>
-      <p class="help-text" style="margin:-6px 0 16px">Bilder werden verkleinert, Videos zu Vorschaubildern, grosse Dateien übersprungen. So arbeitest du mit kleinen Datenmengen und die Datenbank bleibt schnell.</p>
+      <p class="help-text" style="margin:-6px 0 16px">Bilder werden verkleinert, aus Videos und Audio entstehen kurze Clips (z.B. 5 Sekunden), grosse Dateien werden übersprungen. So arbeitest du mit kleinen Datenmengen und die Datenbank bleibt schnell.</p>
 
       <label>📂 Quelle</label>
       <div class="drop-zone" id="cmpDrop">
@@ -192,13 +192,48 @@
       </div>
       <div class="form-row field">
         <div>
-          <label for="cmpVideo">🎬 Videos und GIFs (z.B. Tänze)</label>
+          <label for="cmpVideo">🎬 Videos (z.B. Tänze)</label>
           <select id="cmpVideo">
-            <option value="poster" selected>Vorschaubild erzeugen</option>
+            <option value="clip" selected>Kurzclip (klein, empfohlen)</option>
+            <option value="clippost">Kurzclip + Vorschaubild</option>
+            <option value="poster">Nur Vorschaubild</option>
+            <option value="keep">Behalten (bis Maximalgrösse)</option>
+            <option value="skip">Überspringen</option>
+          </select>
+          <small>GIFs bis zur Maximalgrösse bleiben animiert, grössere werden zum Standbild.</small>
+        </div>
+        <div>
+          <label for="cmpAudio">🎵 Audio (z.B. Sounds, Musik)</label>
+          <select id="cmpAudio">
+            <option value="clip" selected>Ausschnitt (klein, empfohlen)</option>
             <option value="keep">Behalten (bis Maximalgrösse)</option>
             <option value="skip">Überspringen</option>
           </select>
         </div>
+      </div>
+      <div class="form-row field">
+        <div>
+          <label for="cmpClipLen">⏱️ Länge der Clips und Ausschnitte</label>
+          <select id="cmpClipLen">
+            <option value="3">3 Sekunden</option>
+            <option value="5" selected>5 Sekunden</option>
+            <option value="10">10 Sekunden</option>
+          </select>
+          <small>Clips werden in Echtzeit aufgenommen: Dieses Fenster offen und sichtbar lassen.</small>
+        </div>
+        <div>
+          <label for="cmpClipStart">▶️ Ausschnitt beginnt</label>
+          <select id="cmpClipStart">
+            <option value="anfang" selected>am Anfang</option>
+            <option value="mitte">in der Mitte (gut für Musik)</option>
+          </select>
+          <label class="check-option" style="margin-top:8px;padding:8px 12px">
+            <input type="checkbox" id="cmpClipSound" checked>
+            <span>Ton in Videoclips behalten</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-row field">
         <div>
           <label for="cmpMaxOther">📏 Maximalgrösse übrige Dateien</label>
           <select id="cmpMaxOther">
@@ -209,10 +244,10 @@
             <option value="0">unbegrenzt</option>
           </select>
         </div>
-      </div>
-      <div class="field">
-        <label for="cmpPerFolder">🔢 Höchstens so viele Dateien pro Ordner (0 = alle)</label>
-        <input type="text" id="cmpPerFolder" value="0" inputmode="numeric" maxlength="5">
+        <div>
+          <label for="cmpPerFolder">🔢 Max. Dateien pro Ordner (0 = alle)</label>
+          <input type="text" id="cmpPerFolder" value="0" inputmode="numeric" maxlength="5">
+        </div>
       </div>
 
       <div class="field">
@@ -229,7 +264,7 @@
         <input type="checkbox" id="cmpInfo" checked>
         <span><b>Beschreibung beilegen</b><br><small>Legt <code>_info.json</code> (alle Dateien mit Grösse und Bildmassen) und <code>LIESMICH.txt</code> (Quelle und Lizenz) ins ZIP.</small></span>
       </label>
-      <div class="privacy-note">🔒 <span><b>Datenschutz:</b> Beim Neu-Kodieren von Bildern werden Metadaten wie <b>GPS-Standort</b>, Kameramodell und Aufnahmezeit entfernt. Verwende keine Fotos von Personen ohne deren Einverständnis.</span></div>
+      <div class="privacy-note">🔒 <span><b>Datenschutz:</b> Beim Neu-Kodieren von Bildern, Videos und Audio werden Metadaten wie <b>GPS-Standort</b>, Kameramodell, Aufnahmezeit und Song-Tags entfernt. Verwende keine Fotos von Personen ohne deren Einverständnis.</span></div>
 
       <button class="primary" id="cmpRun" disabled>🗜️ Rohdaten verkleinern</button>
     </div>
@@ -471,11 +506,16 @@
   <details><summary>Warum soll ich die Rohdaten verkleinern?</summary>
     <p>Ein Bild mit 4000×3000 Pixel braucht mehrere MB. In der CSV wird es Base64-kodiert und damit noch etwa ein Drittel grösser. Für die Galerie reichen 256 Pixel. Kleine Daten machen Import, Abfragen und Backups schnell und sparen Speicher auf dem Server.</p>
   </details>
+  <details><summary>Wie funktionieren die Kurzclips aus Videos und Audio?</summary>
+    <p>Der Browser spielt jede Datei unsichtbar und ohne Ton aus dem Lautsprecher ab und nimmt dabei einen Ausschnitt auf (3, 5 oder 10 Sekunden). Das geschieht in Echtzeit, bis zu drei Dateien gleichzeitig. Lass das Fenster darum offen und im Vordergrund.</p>
+    <p>Videos werden auf die eingestellte Bildgrösse verkleinert (z.B. 256 px) und als WebM gespeichert, Audio als Opus (<code>.weba</code>). Ein 5-Sekunden-Clip ist etwa 20–80 KB gross statt mehrerer MB.</p>
+    <p>Funktioniert in Chrome, Edge und Firefox. Kennt der Browser ein Format nicht (z.B. manche <code>.mov</code>), wird die Datei übersprungen und in der Liste aufgeführt.</p>
+  </details>
   <details><summary>Meine Bilder erscheinen nicht in der Galerie</summary>
     <ul>
       <li>Prüfe im Control Panel unter «Prüfen» die Query <code>gallery.sql_gallery_bind</code>.</li>
       <li>Die Query muss eine Spalte <code>digest</code> liefern (Alias verwenden: <code>select hash as digest …</code>).</li>
-      <li>Der Typ muss mit <code>image/</code> beginnen, z.B. <code>image/webp</code>.</li>
+      <li>Der Typ muss mit <code>image/</code>, <code>video/</code> oder <code>audio/</code> beginnen, z.B. <code>image/webp</code>. Ältere Configs zeigen nur Bilder: Query mit <code>or type like 'video/%' or type like 'audio/%'</code> ergänzen.</li>
       <li>Öffne im Browser einen Datensatz und klicke «Inhalt entpacken und anzeigen». Kommt ein Fehler, stimmt die Query <code>data.sql_content_bind</code> nicht.</li>
     </ul>
   </details>

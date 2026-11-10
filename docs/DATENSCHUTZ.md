@@ -28,7 +28,7 @@ Durchblick enthält **keine** Tracker, keine Statistik-Dienste und lädt **keine
 ## Eingebaute Schutzmassnahmen
 
 - **Datenminimierung:** Die Werkstatt verkleinert Rohdaten. Weniger Daten = weniger Risiko.
-- **Metadaten entfernen:** Beim Neu-Kodieren von Bildern gehen EXIF-Daten verloren (GPS-Standort, Kameramodell, Aufnahmezeit, teils Name des Geräts). JPEG-Bilder werden darum immer neu kodiert.
+- **Metadaten entfernen:** Beim Neu-Kodieren von Bildern gehen EXIF-Daten verloren (GPS-Standort, Kameramodell, Aufnahmezeit, teils Name des Geräts). JPEG-Bilder werden darum immer neu kodiert. Kurzclips aus Videos und Audio werden neu aufgenommen; dabei fallen auch dort Metadaten weg (z.B. GPS in Handy-Videos, Song-Tags in MP3).
 - **Lokaler Betrieb:** Der Webserver lauscht auf `127.0.0.1` und weist fremde Hostnamen ab.
 - **Keine externen Quellen:** Content-Security-Policy `default-src 'self'`, `Referrer-Policy: no-referrer`.
 - **Schutz vor Fehlbedienung:** `.gitignore` verhindert, dass CSV-Dateien, Prüfberichte, verkleinerte ZIPs und `*.local.yml` ins Repository gelangen.

@@ -122,17 +122,48 @@
       const d = await api(`/api/gallery?pattern=${pattern}&limit=${limit}`);
       if (d.error) { msg.innerHTML = `<span class="error">Query-Fehler: ${esc(d.error)}</span>`; grid.innerHTML = ''; return; }
       const items = d.items || [];
-      msg.textContent = items.length ? `${items.length} Bilder.` : 'Keine Bilder gefunden. Hast du schon Bilder importiert?';
+      const count = t => items.filter(it => (it.type || 'image/').startsWith(t)).length;
+      const parts = [[count('image/'), 'Bilder'], [count('video/'), 'Videoclips'], [count('audio/'), 'Audio']]
+        .filter(([n]) => n).map(([n, l]) => `${n} ${l}`);
+      msg.textContent = items.length ? parts.join(' · ') + '. Videos spielen beim Darüberfahren.' :
+        'Keine Bilder, Videos oder Audiodateien gefunden. Hast du schon importiert?';
       const folders = [...new Set(items.map(it => it.folder))].sort();
       $('#gal-folders').innerHTML = folders.length > 1
         ? ['', ...folders].map(f => `<button class="chip ${f === galleryFolder ? 'active' : ''}" data-folder="${esc(f)}">${f ? '📁 ' + esc(f) : 'Alle'}</button>`).join('')
         : '';
-      grid.innerHTML = items.filter(it => !galleryFolder || it.folder === galleryFolder).map(it => `
-        <figure class="gallery-item" data-digest="${esc(it.digest)}" tabindex="0">
-          <div class="thumb"><img loading="lazy" src="/api/raw/${encodeURIComponent(it.digest)}" alt="${esc(it.name)}"></div>
+      grid.innerHTML = items.filter(it => !galleryFolder || it.folder === galleryFolder).map(it => {
+        const src = `/api/raw/${encodeURIComponent(it.digest)}`;
+        const kind = mediaKind(it.type, it.name);
+        const thumb = kind === 'video'
+          ? `<video muted loop playsinline preload="metadata" src="${src}#t=0.1"></video><span class="media-badge">▶ Clip</span>`
+          : kind === 'audio'
+            ? `<div class="audio-thumb">♪</div><span class="media-badge">🎵 Audio</span>`
+            : `<img loading="lazy" src="${src}" alt="${esc(it.name)}">`;
+        return `
+        <figure class="gallery-item is-${kind}" data-digest="${esc(it.digest)}" tabindex="0">
+          <div class="thumb">${thumb}</div>
           <figcaption><div class="name">${esc(it.name)}</div><div class="folder">${esc(it.folder)}</div></figcaption>
-        </figure>`).join('');
+        </figure>`;
+      }).join('');
+      grid.querySelectorAll('.gallery-item video').forEach(v => {
+        const item = v.closest('.gallery-item');
+        item.addEventListener('mouseenter', () => { v.play().catch(() => {}); });
+        item.addEventListener('mouseleave', () => { v.pause(); });
+        item.addEventListener('focus', () => { v.play().catch(() => {}); });
+        item.addEventListener('blur', () => { v.pause(); });
+      });
     } catch (e) { msg.innerHTML = offline; grid.innerHTML = ''; }
+  }
+
+  function mediaKind(type, path) {
+    const t = String(type || '').toLowerCase();
+    if (t.startsWith('video/')) return 'video';
+    if (t.startsWith('audio/')) return 'audio';
+    if (t.startsWith('image/')) return 'image';
+    if (/\.(webm|mp4|m4v|mov|ogv)$/i.test(path)) return 'video';
+    if (/\.(weba|mp3|wav|ogg|oga|m4a|aac|flac|opus)$/i.test(path)) return 'audio';
+    if (/\.(png|jpe?g|webp|gif|svg|bmp|avif)$/i.test(path)) return 'image';
+    return '';
   }
 
   /* ---------------------------------------------- Datensatz-Dialog */
@@ -145,12 +176,15 @@
         ? d.tags.map(t => `<a class="chip" href="#" data-tag="${esc(t)}">${esc(t)}</a>`).join(' ')
         : "<span class='msg'>Keine Tags gesetzt</span>";
       const rawUrl = `/api/raw/${encodeURIComponent(d.digest)}`;
-      const isImg = d.paths.some(p => /\.(png|jpe?g|webp|gif|svg|bmp|avif)$/i.test(p));
+      const kind = d.paths.map(p => mediaKind('', p)).find(Boolean) || '';
+      const preview = kind === 'image' ? `<img class="preview-img" src="${rawUrl}" alt="Vorschau">`
+        : kind === 'video' ? `<video class="preview-img" src="${rawUrl}" controls autoplay muted loop playsinline></video>`
+          : kind === 'audio' ? `<audio class="preview-audio" src="${rawUrl}" controls autoplay></audio>` : '';
       $('#dialog').innerHTML = `
         <button class="closex" id="btn-close" aria-label="Schliessen">✕</button>
         <h3>Datensatz <span style="color:var(--accent2)">${esc(d.digest)}</span></h3>
         ${d.error ? `<div class="msg error">Query-Fehler: ${esc(d.error)}</div>` : ''}
-        ${isImg ? `<img class="preview-img" src="${rawUrl}" alt="Vorschau">` : ''}
+        ${preview}
         <p><a href="${rawUrl}" target="_blank" rel="noopener noreferrer">Inhalt entpacken und anzeigen ↗</a></p>
         <h2 class="mt" style="margin-top:18px">Dateipfade</h2>
         <pre class="raw">${esc(d.paths.join('\n'))}</pre>

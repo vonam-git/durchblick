@@ -25,7 +25,7 @@ Läuft auf Ubuntu, macOS und Windows. Datenbanken: MySQL / MariaDB, PostgreSQL, 
 
 ### Windows: Installer (empfohlen) 🪟
 
-1. Unter **[Releases](https://github.com/vonam-git/durchblick/releases/latest)** die Datei `Durchblick-Setup-2.0.exe` herunterladen.
+1. Unter **[Releases](https://github.com/vonam-git/durchblick/releases/latest)** die Datei `Durchblick-Setup-2.1.exe` herunterladen.
 2. Doppelklicken. Meldet Windows «Der Computer wurde durch Windows geschützt»: **Weitere Informationen** → **Trotzdem ausführen**.
 3. Installieren. **Python und alle Module sind bereits enthalten**, es braucht **keine Admin-Rechte**.
 4. **Durchblick** im Startmenü oder auf dem Desktop starten.
@@ -158,7 +158,7 @@ Installer selbst bauen (unter Windows):
 ```powershell
 python -m pip install -r requirements.txt pyinstaller
 pyinstaller installer\durchblick.spec --noconfirm
-iscc /DAppVersion=2.0 installer\durchblick.iss      # Inno Setup 6
+iscc /DAppVersion=2.1 installer\durchblick.iss      # Inno Setup 6
 ```
 
 ## Lizenz und Dank

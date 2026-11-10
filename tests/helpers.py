@@ -45,6 +45,8 @@ def sample_files():
         ("/opt/frigg/Files/gamer/game_shop/skins/neon_ninja.png", PNG_1PX, "image/png", *g),
         ("/opt/frigg/Files/gamer/game_shop/skins/kopie.png", PNG_1PX, "image/png", *g),
         ("/opt/frigg/Files/gamer/game_shop/taenze/taenze.json", b'{"taenze": []}', "application/json", *g),
+        ("/opt/frigg/Files/gamer/game_shop/taenze/robo.clip.webm", bytes(range(256)) * 4, "video/webm", *g),
+        ("/opt/frigg/Files/gamer/game_shop/sounds/beat.clip.weba", b"OggS-fake-audio" * 10, "audio/webm", *g),
         ("/opt/frigg/Files/gamer/game_shop/evil.svg",
          b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', "image/svg+xml", *g),
     ]

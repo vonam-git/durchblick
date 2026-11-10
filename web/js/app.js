@@ -235,6 +235,9 @@
 
 .site-title { text-transform: uppercase; letter-spacing: 2px; }
 
+/* Auf farbigem Kopf: heller Text für guten Kontrast */
+.site-header, .site-subtitle, .appver { color: #fff; }
+
 .gallery-item .thumb img {
   transition: transform .3s;
 }

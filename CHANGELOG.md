@@ -3,6 +3,7 @@
 ## 2.0 – Werkstatt, Galerie und Design
 
 **Neu**
+- **Control Panel neu gestaltet:** Farben wie die Weboberfläche, Hell/Dunkel-Umschalter (wird gemerkt), Seitenleiste statt Reiter (Alt+1 … Alt+6), Startseite mit sechs Schritt-Karten, Status-Anzeige im Kopf, farbige YAML-Hervorhebung im Config-Editor, Zähler für OK/Hinweise/Fehler beim Query-Check, eigener Query-Tester (Doppelklick im Query-Check öffnet die Query dort), übersichtliche System-Seite.
 - **Werkstatt** in der Weboberfläche mit drei Schritten:
   1. *Rohdaten vorbereiten:* Ordner, Dateien oder ZIP einlesen; Bilder verkleinern und neu kodieren (WebP/JPEG/PNG, EXIF wird entfernt); Videos und GIFs zu Vorschaubildern; Grössen- und Ordnerlimits; Einsortieren in `Files/<benutzer>/<projekt>/`; bestehendes Rohdaten-ZIP unverändert ergänzen; `_info.json` und `LIESMICH.txt`; fiktive Beispiel-Rohdaten «Game-Shop».
   2. *CSV generieren:* Datensatzgenerator v1.1 integriert (Format unverändert).

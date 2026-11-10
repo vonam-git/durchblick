@@ -13,7 +13,7 @@ Durchblick begleitet Lernende vom eigenen Rohdaten-Ordner bis zur fertigen, selb
 | **Werkstatt** (Weboberfläche) | ① Rohdaten verkleinern (Bilder, Video-Vorschaubilder, Limits) ② CSV-Datensatz generieren ③ CSV vor dem Import prüfen. Alles lokal im Browser. |
 | **Datenbank-Ansichten** | Start, Übersicht, Browser, **Galerie**, Tags. Solange eine Query nicht zum eigenen Schema passt, erscheint ein Emoji. Ziel: alle Emojis durch echte Daten ersetzen. |
 | **Design** | Fünf Vorlagen, Live-CSS-Editor und `theme/eigenes.css` für die eigene Gestaltung. |
-| **Control Panel** | Fenster mit Start/Stopp, Config-Editor, Query-Check, Query-Tester und Protokoll. |
+| **Control Panel** | Fenster mit Start/Stopp, Config-Editor mit YAML-Farben, Query-Check, Query-Tester, Protokoll und System-Infos. Hell- und Dunkelmodus. |
 
 Läuft auf Ubuntu, macOS und Windows. Datenbanken: MySQL / MariaDB, PostgreSQL, SQLite und ODBC.
 

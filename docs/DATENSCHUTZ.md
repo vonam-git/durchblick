@@ -21,6 +21,7 @@ Durchblick ist für den Unterricht an einer Schweizer Berufsfachschule gedacht. 
 | CSV-Inhalt | deine Datenbank | lokal oder Schulserver | Zugriff nur mit DB-Benutzer und Passwort |
 | DB-Zugangsdaten | `durchblick.conf(.local).yml` | Webserver auf deinem Computer | Server nur über `127.0.0.1`; Passwort wird nie an den Browser geschickt |
 | Live-CSS, gewählte Vorlage | `localStorage` deines Browsers | nirgends | bleibt in diesem Browser |
+| Panel-Einstellungen (Hell/Dunkel, Browser automatisch öffnen) | `~/.durchblick_panel.json` | nirgends | enthält keine Personendaten |
 
 Durchblick enthält **keine** Tracker, keine Statistik-Dienste und lädt **keine** externen Skripte, Schriften oder Bilder. Die Content-Security-Policy erzwingt das technisch.
 

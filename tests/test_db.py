@@ -42,7 +42,7 @@ def test_ui_and_app_not_queries():
 
 def test_local_config_preferred(tmp_path, monkeypatch):
     monkeypatch.delenv("DURCHBLICK_CONFIG", raising=False)
-    monkeypatch.setattr(db, "APP_DIR", tmp_path)
+    monkeypatch.setattr(db, "DATA_DIR", tmp_path)
     (tmp_path / db.CONFIG_NAME).write_text("a: 1\n")
     assert db.config_path().name == db.CONFIG_NAME
     (tmp_path / db.LOCAL_CONFIG_NAME).write_text("a: 2\n")
@@ -75,3 +75,23 @@ def test_yaml_error_message():
     with pytest.raises(db.ConfigError) as exc:
         db.parse_config_text("a: [1, 2")
     assert "Zeile" in str(exc.value)
+
+
+def test_ensure_data_dir_installed(tmp_path, monkeypatch):
+    """Installierte Version: Datenordner wird befüllt, eigene Dateien bleiben erhalten."""
+    data = tmp_path / "Dokumente" / "Durchblick"
+    monkeypatch.setattr(db, "DATA_DIR", data)
+    db.ensure_data_dir()
+    assert (data / db.CONFIG_NAME).is_file()
+    assert (data / "theme" / "eigenes.css").is_file()
+    assert (data / "docs" / "ANLEITUNG.md").is_file()
+    (data / db.CONFIG_NAME).write_text("eigene: config\n", encoding="utf-8")
+    (data / "theme" / "eigenes.css").write_text("/* mein css */", encoding="utf-8")
+    db.ensure_data_dir()
+    assert (data / db.CONFIG_NAME).read_text(encoding="utf-8") == "eigene: config\n"
+    assert (data / "theme" / "eigenes.css").read_text(encoding="utf-8") == "/* mein css */"
+
+
+def test_ensure_data_dir_dev_mode_noop(monkeypatch):
+    monkeypatch.setattr(db, "DATA_DIR", db.APP_DIR)
+    assert db.ensure_data_dir() == db.APP_DIR

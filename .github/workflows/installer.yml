@@ -1,0 +1,138 @@
+name: Windows-Installer
+
+# Baut Durchblick-Setup-<Version>.exe auf einem Windows-Rechner von GitHub.
+# - bei jedem Push auf main: Installer als Release «v<Version>» veröffentlichen
+# - bei Push auf develop und manuell: Installer nur als Artefakt (Test)
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore: ["**.md", "docs/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # nötig, um das Release zu erstellen
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Version lesen
+        id: ver
+        shell: bash
+        run: echo "version=$(grep -oP 'APP_VERSION = "\K[^"]+' durchblick_web.py)" >> "$GITHUB_OUTPUT"
+
+      - name: Abhängigkeiten
+        run: python -m pip install -r requirements.txt pyinstaller
+
+      - name: Programm bauen (PyInstaller)
+        run: pyinstaller installer\durchblick.spec --noconfirm
+
+      - name: Rauchtest - gebauter Server antwortet
+        shell: pwsh
+        run: |
+          $env:DURCHBLICK_HOME = "$env:RUNNER_TEMP\DurchblickTest"
+          $p = Start-Process -FilePath "dist\Durchblick\durchblick-server.exe" -PassThru -WindowStyle Hidden
+          $ok = $false
+          for ($i = 0; $i -lt 30; $i++) {
+            Start-Sleep -Seconds 1
+            try {
+              $r = Invoke-RestMethod "http://127.0.0.1:3000/api/status"
+              if ($r.appname -eq "Durchblick") { $ok = $true; break }
+            } catch {}
+          }
+          $html = (Invoke-WebRequest "http://127.0.0.1:3000/" -UseBasicParsing).Content
+          Stop-Process -Id $p.Id -Force
+          if (-not $ok -or $html -notmatch "Werkstatt") { throw "Server antwortet nicht" }
+          if (-not (Test-Path "$env:DURCHBLICK_HOME\durchblick.conf.yml")) { throw "Datenordner fehlt" }
+          Write-Host "Server OK, Datenordner angelegt."
+
+      - name: Rauchtest - Panel startet ohne Absturz
+        shell: pwsh
+        run: |
+          $env:DURCHBLICK_HOME = "$env:RUNNER_TEMP\DurchblickTest"
+          $p = Start-Process -FilePath "dist\Durchblick\Durchblick.exe" -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited) { throw "Panel wurde beendet (Code $($p.ExitCode))" }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "Panel OK."
+
+      - name: Inno Setup bereitstellen
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue) -and
+              -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+
+      - name: Installer bauen
+        shell: pwsh
+        run: |
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc "/DAppVersion=${{ steps.ver.outputs.version }}" installer\durchblick.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup fehlgeschlagen" }
+          Get-ChildItem dist\*.exe
+
+      - name: Rauchtest - Installer installiert still
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist\Durchblick-Setup-*.exe | Select-Object -First 1
+          $p = Start-Process $setup.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/CURRENTUSER", "/NORESTART" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installation fehlgeschlagen (Code $($p.ExitCode))" }
+          $exe = "$env:LOCALAPPDATA\Programs\Durchblick\Durchblick.exe"
+          if (-not (Test-Path $exe)) { throw "Durchblick.exe nicht installiert" }
+          Write-Host "Installiert nach $exe"
+          $un = "$env:LOCALAPPDATA\Programs\Durchblick\unins000.exe"
+          Start-Process $un -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES" -Wait
+          Write-Host "Deinstallation OK."
+
+      - name: Prüfsumme (SHA-256)
+        id: hash
+        shell: pwsh
+        run: |
+          $f = Get-ChildItem dist\Durchblick-Setup-*.exe | Select-Object -First 1
+          $h = (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower()
+          "$h  $($f.Name)" | Out-File -Encoding ascii dist\SHA256SUMS.txt
+          "sha256=$h" >> $env:GITHUB_OUTPUT
+          Write-Host "$h  $($f.Name)"
+
+      - name: Artefakt hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Durchblick-Setup-${{ steps.ver.outputs.version }}
+          path: |
+            dist/Durchblick-Setup-*.exe
+            dist/SHA256SUMS.txt
+          retention-days: 30
+
+      - name: Release veröffentlichen (nur main)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.ver.outputs.version }}
+          name: Durchblick ${{ steps.ver.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          files: |
+            dist/Durchblick-Setup-*.exe
+            dist/SHA256SUMS.txt
+          body: |
+            ## Installation unter Windows
+
+            1. **Durchblick-Setup-${{ steps.ver.outputs.version }}.exe** unten herunterladen und doppelklicken.
+            2. Meldet Windows «Der Computer wurde durch Windows geschützt»: auf **Weitere Informationen** → **Trotzdem ausführen** klicken (der Installer ist nicht kostenpflichtig signiert).
+            3. Installieren – ohne Admin-Rechte, Python ist bereits enthalten.
+            4. **Durchblick** im Startmenü oder auf dem Desktop starten.
+
+            Config und eigene Gestaltung liegen danach in **Dokumente\Durchblick**.
+            Anleitung: [docs/ANLEITUNG.md](https://github.com/vonam-git/durchblick/blob/main/docs/ANLEITUNG.md)
+
+            **SHA-256:** `${{ steps.hash.outputs.sha256 }}`
+            Prüfen in PowerShell: `Get-FileHash .\Durchblick-Setup-${{ steps.ver.outputs.version }}.exe`
+
+            *Automatisch gebaut von GitHub Actions aus Commit ${{ github.sha }}.*

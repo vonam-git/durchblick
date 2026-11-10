@@ -45,10 +45,14 @@ except ModuleNotFoundError as exc:  # z. B. PyYAML fehlt
     IMPORT_ERROR = exc
 
 APP_VERSION = "2.0"
-APP_DIR = Path(__file__).resolve().parent
+APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+FROZEN = bool(getattr(sys, "frozen", False))   # installierte Version (PyInstaller)
 WEB_SCRIPT = APP_DIR / "durchblick_web.py"
-THEME_DIR = APP_DIR / "theme"
-DOCS_DIR = APP_DIR / "docs"
+SERVER_EXE = Path(sys.executable).with_name(
+    "durchblick-server.exe" if sys.platform == "win32" else "durchblick-server")
+DATA_DIR = db.DATA_DIR if db else APP_DIR       # Config, theme/, docs/
+THEME_DIR = DATA_DIR / "theme"
+DOCS_DIR = DATA_DIR / "docs"
 SETTINGS_FILE = Path.home() / ".durchblick_panel.json"
 IS_MAC = sys.platform == "darwin"
 SAVE_KEY = "Cmd+S" if IS_MAC else "Strg+S"
@@ -618,8 +622,10 @@ class Panel:
             r = self._paint(tk.Frame(tips.inner), bg="panel")
             r.pack(fill="x", pady=3)
             self.label(r, "•", "panel", "accent2", self.f["bold"]).pack(side="left", anchor="n")
-            self.label(r, t, "panel", "muted", self.f["small"], anchor="w", justify="left",
-                       wraplength=300).pack(side="left", fill="x", padx=(6, 0))
+            tl = self.label(r, t, "panel", "muted", self.f["small"], anchor="w", justify="left",
+                            wraplength=260)
+            tl.pack(side="left", fill="x", expand=True, padx=(6, 0))
+            tl.bind("<Configure>", lambda e: e.widget.configure(wraplength=max(160, e.width - 4)))
 
     def _save_auto_open(self):
         self.settings["auto_open"] = bool(self.auto_open.get())
@@ -985,7 +991,7 @@ class Panel:
 
     def make_local_copy(self):
         """Config als durchblick.conf.local.yml speichern (wird von Git ignoriert)."""
-        target = APP_DIR / db.LOCAL_CONFIG_NAME
+        target = DATA_DIR / db.LOCAL_CONFIG_NAME
         if self.cfg_path == target:
             messagebox.showinfo("Persönliche Kopie", f"Du arbeitest bereits mit {target.name}.")
             return
@@ -1043,8 +1049,9 @@ class Panel:
         if sys.platform == "win32":
             kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
         try:
+            cmd = [str(SERVER_EXE)] if FROZEN else [sys.executable, "-u", str(WEB_SCRIPT)]
             self.proc = subprocess.Popen(
-                [sys.executable, "-u", str(WEB_SCRIPT)], cwd=str(APP_DIR), env=env,
+                cmd, cwd=str(DATA_DIR), env=env,
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                 encoding="utf-8", errors="replace", bufsize=1, **kwargs)
         except OSError as exc:
@@ -1274,6 +1281,8 @@ class Panel:
         row(info, "Interpreter", sys.executable, "muted")
         row(info, "Tk-Version", str(tk.TkVersion))
         row(info, "Programmordner", str(APP_DIR), "muted")
+        if DATA_DIR != APP_DIR:
+            row(info, "Datenordner", str(DATA_DIR), "muted")
         row(info, "Config", str(self.cfg_path), "muted")
 
         deps = [
@@ -1297,7 +1306,11 @@ class Panel:
             self._sys_widgets.append(r)
 
         lines = [INSTALL_CMD]
-        if platform.system() == "Linux":
+        if FROZEN:
+            lines = ["Installierte Version: Python und alle Module sind bereits enthalten.",
+                     "Neue Version? Einfach die neue Durchblick-Setup.exe ausführen.",
+                     f"Config und eigene Gestaltung liegen in: {DATA_DIR}"]
+        elif platform.system() == "Linux":
             lines += ["", "Ubuntu meldet «externally-managed-environment»? Dann zuerst:",
                       "python3 -m venv .venv && source .venv/bin/activate"]
         lbl = self.label(self.sys_help.inner, "\n".join(lines), "panel", "text", self.f["mono"],
@@ -1337,6 +1350,18 @@ def main():
                              f"Ein benötigtes Python-Modul fehlt: {IMPORT_ERROR.name}\n\n"
                              f"Bitte im Programmordner ausführen:\n{INSTALL_CMD}")
         return
+    try:
+        db.ensure_data_dir()
+    except OSError as exc:
+        root.withdraw()
+        messagebox.showerror("Datenordner", f"Der Ordner {db.DATA_DIR} konnte nicht angelegt werden:\n{exc}")
+        return
+    icon = APP_DIR / "installer" / "durchblick.png"
+    if icon.exists():
+        try:
+            root.iconphoto(True, tk.PhotoImage(file=str(icon)))
+        except tk.TclError:
+            pass
     panel = Panel(root)
     root.protocol("WM_DELETE_WINDOW", panel.on_closing)
     root.mainloop()

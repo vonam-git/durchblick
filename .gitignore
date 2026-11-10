@@ -45,3 +45,7 @@ pruefbericht_*.txt
 # Testartefakte
 .pytest_cache/
 test-results/
+
+# Build-Ausgaben (PyInstaller, Inno Setup)
+build/
+dist/

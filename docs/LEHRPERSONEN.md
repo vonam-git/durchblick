@@ -28,6 +28,20 @@ Der Ordner `tests/` enthält in `tests/fixtures/schema_sqlite.sql` und `tests/he
 git archive --format=zip -o durchblick_lernende.zip main -- . ':!tests' ':!.github' ':!scripts' ':!requirements-dev.txt'
 ```
 
+## Installation auf Schulgeräten
+
+Der Windows-Installer wird bei jedem Push auf `main` automatisch von GitHub Actions gebaut, getestet (Server, Panel, stille Installation und Deinstallation) und als Release veröffentlicht – mit SHA-256-Prüfsumme.
+
+- Installation **pro Benutzer** nach `%LOCALAPPDATA%\Programs\Durchblick`, keine Admin-Rechte nötig.
+- Daten der Lernenden in `Dokumente\Durchblick` (Config, `theme/`, `docs/`). Bleiben bei Update und Deinstallation erhalten.
+- Stille Verteilung durch die Schul-IT:
+  ```
+  Durchblick-Setup-2.0.exe /VERYSILENT /SUPPRESSMSGBOXES /CURRENTUSER /NORESTART
+  ```
+  Für alle Benutzer (mit Admin-Rechten): `/ALLUSERS` statt `/CURRENTUSER`.
+- Der Installer ist nicht code-signiert. SmartScreen warnt darum beim ersten Mal. Wer das vermeiden will, signiert die EXE mit einem Zertifikat der Schule (`signtool`) oder lässt sie von der Schul-IT freigeben.
+- Umgebungsvariable `DURCHBLICK_HOME` setzt einen anderen Datenordner (z.B. ein Netzlaufwerk).
+
 ## Automatische Prüfungen
 
 ```bash

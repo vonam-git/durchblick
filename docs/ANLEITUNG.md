@@ -22,10 +22,13 @@ Diese Anleitung führt dich Schritt für Schritt von deinen eigenen Rohdaten bis
 
 ## 0. Installieren und starten
 
-1. Projektordner herunterladen oder klonen.
-2. Virtuelle Umgebung anlegen und Module installieren (siehe [README](../README.md#schnellstart)).
-3. `python3 durchblick_panel.py` (Windows: `python durchblick_panel.py`) starten.
-4. Im Panel oben auf **▶ Starten** klicken. Der Browser öffnet sich.
+**Windows:** `Durchblick-Setup-2.0.exe` von den [Releases](https://github.com/vonam-git/durchblick/releases/latest) herunterladen, doppelklicken, installieren. Bei der Warnung «Der Computer wurde durch Windows geschützt»: **Weitere Informationen** → **Trotzdem ausführen**. Danach **Durchblick** im Startmenü öffnen.
+
+**macOS / Linux:** Repository herunterladen und `Durchblick-starten.command` doppelklicken (siehe [README](../README.md#installation)).
+
+Dann im Panel oben auf **▶ Starten** klicken. Der Browser öffnet sich.
+
+> 📁 Bei der installierten Version liegen Config (`durchblick.conf.yml`), eigene Gestaltung (`theme/`) und diese Anleitungen in **Dokumente\Durchblick**. Das Panel zeigt den Ordner auf der Startseite unter «Dateien und Ordner».
 
 Noch keine Datenbank? Kein Problem: Die Startseite zeigt dann «Keine Verbindung», die **Werkstatt** funktioniert trotzdem.
 
@@ -209,7 +212,7 @@ Mach Durchblick zu **deinem** Projekt:
      theme: arcade
    ```
 2. Im Reiter **Design** eine Vorlage ausprobieren und im Live-Editor eigenes CSS schreiben.
-3. Ergebnis als `theme/eigenes.css` speichern und den Browser neu laden.
+3. Ergebnis als `theme/eigenes.css` speichern (installierte Version: `Dokumente\Durchblick\theme\eigenes.css`) und den Browser neu laden.
 
 Alle Möglichkeiten: [EIGENES-DESIGN.md](EIGENES-DESIGN.md).
 

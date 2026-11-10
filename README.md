@@ -21,14 +21,31 @@ Läuft auf Ubuntu, macOS und Windows. Datenbanken: MySQL / MariaDB, PostgreSQL, 
 
 ---
 
-## Schnellstart
+## Installation
 
-Voraussetzung: Python 3.9 oder neuer.
+### Windows: Installer (empfohlen) 🪟
 
-- **Ubuntu:** `sudo apt install python3-tk python3-venv`
-- **Windows / macOS:** Python von [python.org](https://www.python.org/downloads/) installieren (enthält Tk). Unter macOS nicht das Python von Apple (Xcode) verwenden.
+1. Unter **[Releases](https://github.com/vonam-git/durchblick/releases/latest)** die Datei `Durchblick-Setup-2.0.exe` herunterladen.
+2. Doppelklicken. Meldet Windows «Der Computer wurde durch Windows geschützt»: **Weitere Informationen** → **Trotzdem ausführen**.
+3. Installieren. **Python und alle Module sind bereits enthalten**, es braucht **keine Admin-Rechte**.
+4. **Durchblick** im Startmenü oder auf dem Desktop starten.
 
-Im Programmordner:
+Config und eigene Gestaltung liegen danach in **`Dokumente\Durchblick`** und bleiben bei Updates erhalten. Ein Update ist einfach die neue Setup-Datei.
+
+### Doppelklick-Starter (alle Systeme, mit vorhandenem Python)
+
+Repository herunterladen (grüner Knopf «Code» → «Download ZIP») und entpacken, dann:
+
+| System | Starten |
+|---|---|
+| Windows | `Durchblick-starten.bat` doppelklicken |
+| macOS | `Durchblick-starten.command` doppelklicken (beim ersten Mal: Rechtsklick → Öffnen) |
+| Linux | `./Durchblick-starten.command` |
+
+Beim ersten Start wird automatisch eine Python-Umgebung (`.venv`) eingerichtet und alles installiert (1–2 Minuten). Voraussetzung: Python 3.9+ von [python.org](https://www.python.org/downloads/), unter Ubuntu `sudo apt install python3-tk python3-venv`.
+
+<details>
+<summary>Manuell im Terminal (für Fortgeschrittene)</summary>
 
 ```bash
 # Ubuntu / macOS
@@ -45,6 +62,7 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 python durchblick_panel.py
 ```
+</details>
 
 Im Control Panel auf **Starten** klicken. Die Weboberfläche öffnet sich unter <http://127.0.0.1:3000>. Ohne Panel: `python3 durchblick_web.py`.
 
@@ -71,6 +89,9 @@ durchblick/
 │       ├── generator.js       Werkstatt 2: CSV generieren (Datensatzgenerator v1.1)
 │       └── checker.js         Werkstatt 3: CSV prüfen
 ├── docs/                      Anleitungen
+├── installer/                 Windows-Installer (PyInstaller-Spec, Inno Setup, Icon)
+├── Durchblick-starten.bat     Doppelklick-Start Windows
+├── Durchblick-starten.command Doppelklick-Start macOS / Linux
 ├── tests/                     Automatische Tests (pytest, Node, Browser)
 └── scripts/pruefen.sh         Alle Tests und Sicherheits-Scans
 ```
@@ -130,7 +151,15 @@ bash scripts/pruefen.sh            # Tests, ZIP-Test, bandit, pip-audit
 python3 tests/e2e_browser.py shots # optional: kompletter Ablauf im Browser mit Screenshots
 ```
 
-Branches: `develop` für die Weiterentwicklung, `main` für die freigegebene Version. GitHub Actions führt `scripts/pruefen.sh` bei jedem Push aus.
+Branches: `develop` für die Weiterentwicklung, `main` für die freigegebene Version. GitHub Actions führt bei jedem Push `scripts/pruefen.sh` aus und baut auf Windows den Installer (Workflow «Windows-Installer»). Auf `main` wird er als Release `v<Version>` veröffentlicht.
+
+Installer selbst bauen (unter Windows):
+
+```powershell
+python -m pip install -r requirements.txt pyinstaller
+pyinstaller installer\durchblick.spec --noconfirm
+iscc /DAppVersion=2.0 installer\durchblick.iss      # Inno Setup 6
+```
 
 ## Lizenz und Dank
 

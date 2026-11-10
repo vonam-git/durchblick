@@ -31,7 +31,7 @@ import durchblick_db as db
 APP_NAME = "Durchblick"
 APP_VERSION = "2.0"
 WEB_DIR = db.APP_DIR / "web"
-THEME_DIR = db.APP_DIR / "theme"
+THEME_DIR = db.DATA_DIR / "theme"  # eigene Gestaltung (schreibbar)
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -385,6 +385,7 @@ app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")
 
 def main():
     import uvicorn
+    db.ensure_data_dir()
     try:
         cfg = db.get_config()
     except db.ConfigError as exc:

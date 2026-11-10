@@ -6,6 +6,11 @@ Die wichtigsten Antworten stehen auch direkt in der Weboberfläche im Reiter **�
 
 | Problem | Ursache und Lösung |
 |---|---|
+| «Der Computer wurde durch Windows geschützt» | Der Installer ist nicht kostenpflichtig signiert. **Weitere Informationen** → **Trotzdem ausführen** |
+| Virenscanner meldet den Installer | Fehlalarm bei Python-Programmen kommt vor. Prüfsumme mit `Get-FileHash` mit der im Release vergleichen, ggf. Lehrperson oder Schul-IT fragen |
+| Wo ist meine Config? (installierte Version) | `Dokumente\Durchblick\durchblick.conf.yml` – das Panel zeigt den Pfad auf der Startseite |
+| `Durchblick-starten.bat` meldet «Python wurde nicht gefunden» | Installer verwenden oder Python von python.org mit «Add python.exe to PATH» installieren |
+| macOS: «kann nicht geöffnet werden» | Rechtsklick auf `Durchblick-starten.command` → Öffnen |
 | Panel meldet «Modul fehlt» | `python3 -m pip install -r requirements.txt` ausführen (in der virtuellen Umgebung) |
 | `externally-managed-environment` unter Ubuntu | virtuelle Umgebung verwenden (siehe README) |
 | `No module named tkinter` | Ubuntu: `sudo apt install python3-tk`. Alternativ ohne Panel: `python3 durchblick_web.py` |

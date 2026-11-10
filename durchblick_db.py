@@ -10,13 +10,43 @@ Dieses Modul braucht kein fastapi und kein tkinter.
 
 import base64
 import os
+import shutil
+import sys
 import zlib
 from decimal import Decimal
 from pathlib import Path
 
 import yaml
 
-APP_DIR = Path(__file__).resolve().parent
+# Installierte Version (PyInstaller): Programmdateien liegen schreibgeschützt im
+# Installationsordner, Config und eigene Gestaltung im Ordner «Dokumente\Durchblick».
+FROZEN = bool(getattr(sys, "frozen", False))
+APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+
+
+def _documents_dir() -> Path:
+    """Ordner «Dokumente» des Benutzers (unter Windows auch bei OneDrive-Umleitung)."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            from ctypes import wintypes
+            buf = ctypes.create_unicode_buffer(wintypes.MAX_PATH)
+            if ctypes.windll.shell32.SHGetFolderPathW(None, 5, None, 0, buf) == 0:  # CSIDL_PERSONAL
+                return Path(buf.value)
+        except Exception:
+            pass
+    docs = Path.home() / "Documents"
+    return docs if docs.is_dir() else Path.home()
+
+
+def _data_dir() -> Path:
+    env = os.environ.get("DURCHBLICK_HOME")
+    if env:
+        return Path(env)
+    return _documents_dir() / "Durchblick" if FROZEN else APP_DIR
+
+
+DATA_DIR = _data_dir()
 CONFIG_NAME = "durchblick.conf.yml"
 # Persönliche Kopie mit echtem Passwort, wird von Git ignoriert (.gitignore)
 LOCAL_CONFIG_NAME = "durchblick.conf.local.yml"
@@ -43,16 +73,36 @@ class ConfigError(Exception):
 # Konfiguration
 # ---------------------------------------------------------------------------
 
+def ensure_data_dir() -> Path:
+    """Installierte Version: Datenordner beim ersten Start mit Config, theme/ und
+    docs/ befüllen. Vorhandene Config und eigene Gestaltung werden nie überschrieben,
+    die Anleitungen (docs/) immer aktualisiert."""
+    if DATA_DIR == APP_DIR:
+        return DATA_DIR
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not (DATA_DIR / CONFIG_NAME).exists():
+        shutil.copy2(APP_DIR / CONFIG_NAME, DATA_DIR / CONFIG_NAME)
+    theme = DATA_DIR / "theme"
+    theme.mkdir(exist_ok=True)
+    for src in (APP_DIR / "theme").glob("*"):
+        if src.is_file() and not (theme / src.name).exists():
+            shutil.copy2(src, theme / src.name)
+    if (APP_DIR / "docs").is_dir():
+        shutil.copytree(APP_DIR / "docs", DATA_DIR / "docs", dirs_exist_ok=True)
+    return DATA_DIR
+
+
 def config_path() -> Path:
     """Pfad der Config. Reihenfolge:
     1. Umgebungsvariable DURCHBLICK_CONFIG
-    2. durchblick.conf.local.yml im Programmordner (falls vorhanden)
-    3. durchblick.conf.yml im Programmordner"""
+    2. durchblick.conf.local.yml im Datenordner (falls vorhanden)
+    3. durchblick.conf.yml im Datenordner
+    Datenordner = Programmordner, bei der installierten Version «Dokumente/Durchblick»."""
     env = os.environ.get("DURCHBLICK_CONFIG")
     if env:
         return Path(env)
-    local = APP_DIR / LOCAL_CONFIG_NAME
-    return local if local.exists() else APP_DIR / CONFIG_NAME
+    local = DATA_DIR / LOCAL_CONFIG_NAME
+    return local if local.exists() else DATA_DIR / CONFIG_NAME
 
 
 def parse_config_text(text: str) -> dict:

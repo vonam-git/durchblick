@@ -23,6 +23,8 @@ Durchblick läuft auf dem Rechner der Lernenden und verbindet sich mit deren Dat
 | SQL-Injection | Eingaben aus der Oberfläche | Alle Werte als Bind-Parameter (`?`); SQL kommt ausschliesslich aus der Config |
 | Unsichere YAML-Verarbeitung | Objekt-Konstruktion über YAML-Tags | `yaml.safe_load` |
 
+| Manipulierter Installer | Fremde EXE wird als Durchblick ausgegeben | Installer wird nur von GitHub Actions aus dem öffentlichen Quellcode gebaut; SHA-256-Prüfsumme im Release; Installation ohne Admin-Rechte (kein Zugriff auf Systemordner) |
+
 Bewusst **nicht** abgedeckt: Durchblick hat keine Benutzerverwaltung. Der Query-Tester im Panel führt beliebiges SQL mit den Rechten des konfigurierten DB-Benutzers aus (schreibende Queries nur nach Bestätigung). Wer Durchblick auf einem Server betreibt, setzt einen Reverse-Proxy mit HTTPS und Anmeldung davor.
 
 ## Automatische Prüfungen

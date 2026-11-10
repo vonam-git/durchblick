@@ -18,6 +18,10 @@ import yaml
 
 APP_DIR = Path(__file__).resolve().parent
 CONFIG_NAME = "durchblick.conf.yml"
+# Persönliche Kopie mit echtem Passwort, wird von Git ignoriert (.gitignore)
+LOCAL_CONFIG_NAME = "durchblick.conf.local.yml"
+# Passwort alternativ aus der Umgebung (überschreibt db.pass der Config)
+PASS_ENV = "DURCHBLICK_DB_PASS"
 TIMEOUT = 5  # Sekunden für den Verbindungsaufbau
 
 DRIVERS = {
@@ -39,9 +43,15 @@ class ConfigError(Exception):
 # ---------------------------------------------------------------------------
 
 def config_path() -> Path:
-    """Pfad der Config: Umgebungsvariable DURCHBLICK_CONFIG oder Skriptordner."""
+    """Pfad der Config. Reihenfolge:
+    1. Umgebungsvariable DURCHBLICK_CONFIG
+    2. durchblick.conf.local.yml im Programmordner (falls vorhanden)
+    3. durchblick.conf.yml im Programmordner"""
     env = os.environ.get("DURCHBLICK_CONFIG")
-    return Path(env) if env else APP_DIR / CONFIG_NAME
+    if env:
+        return Path(env)
+    local = APP_DIR / LOCAL_CONFIG_NAME
+    return local if local.exists() else APP_DIR / CONFIG_NAME
 
 
 def parse_config_text(text: str) -> dict:
@@ -84,10 +94,26 @@ def get_query(section: str, key: str, cfg: dict = None) -> str:
     return sql
 
 
+UI_DEFAULTS = {"titel": "", "untertitel": "", "logo": "", "fusszeile": "", "theme": "standard"}
+THEMES = ("standard", "hell", "arcade", "terminal", "alpen")
+
+
+def get_ui(cfg: dict) -> dict:
+    """Abschnitt «ui» der Config (Titel, Logo, Vorlage). Nur kurze Texte."""
+    body = cfg.get("ui") if isinstance(cfg.get("ui"), dict) else {}
+    out = {}
+    for key, default in UI_DEFAULTS.items():
+        value = body.get(key, default)
+        out[key] = str(value if value is not None else "").strip()[:120]
+    if out["theme"] not in THEMES:
+        out["theme"] = "standard"
+    return out
+
+
 def iter_queries(cfg: dict):
     """Alle SQL-Queries der Config als (Abschnitt, Schlüssel, SQL)."""
     for section, body in cfg.items():
-        if section in ("db", "app") or not isinstance(body, dict):
+        if section in ("db", "app", "ui") or not isinstance(body, dict):
             continue
         for key, sql in body.items():
             if isinstance(sql, str) and (key.startswith("sql_") or key == "author"):
@@ -135,7 +161,7 @@ def connect(cfg: dict = None):
     dbc = cfg.get("db") or {}
     p = parse_dsn(dbc.get("dsn", ""))
     user = str(dbc.get("user") or "")
-    password = str(dbc.get("pass") or "")
+    password = os.environ.get(PASS_ENV) or str(dbc.get("pass") or "")
     drv = p["driver"]
     try:
         if drv == "mysql":
@@ -250,7 +276,7 @@ def decode_payload(content) -> bytes:
 # ---------------------------------------------------------------------------
 
 def dummy_params(key: str, n: int) -> list:
-    base = ["%", 5] if key == "sql_browseview_bind" else []
+    base = ["%", 5] if key in ("sql_browseview_bind", "sql_gallery_bind") else []
     return (base + ["x"] * n)[:n]
 
 
@@ -270,7 +296,8 @@ def check_queries(cfg: dict) -> list:
             try:
                 cols, rows = run_query(sql, dummy_params(key, n) or None,
                                        conn_drv, commit=False)
-                if key == "sql_browseview_bind" and "digest" not in [c.lower() for c in cols]:
+                if key in ("sql_browseview_bind", "sql_gallery_bind") and \
+                        "digest" not in [c.lower() for c in cols]:
                     status, detail = "Hinweis", "Spalte «digest» fehlt (Link im Browser nicht möglich)"
                 elif n == 0 and (not rows or (len(rows[0]) == 1 and rows[0][0] is None)):
                     status, detail = "Leer", "Query läuft, liefert aber kein Ergebnis"

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="de-CH">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>Durchblick</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+<link rel="stylesheet" href="/static/css/app.css">
+<!-- Vorlage aus der Config (ui: theme:) oder aus dem Reiter «Design» -->
+<link rel="stylesheet" id="theme-preset" href="/static/themes/standard.css">
+<!-- Eigene Gestaltung der Lernenden: theme/eigenes.css -->
+<link rel="stylesheet" id="theme-own" href="/theme/eigenes.css">
+<!-- Live-Vorschau aus dem Reiter «Design» (nur in diesem Browser) -->
+<style id="live-css"></style>
+</head>
+<body>
+<header class="site-header">
+  <div class="site-logo" id="ui-logo">🔍</div>
+  <div>
+    <div class="site-title" id="ui-title">Durch<span>blick</span></div>
+    <div class="site-subtitle" id="ui-subtitle">Datenbank in Betrieb nehmen · Modul 141</div>
+  </div>
+  <div class="appver" id="appver"></div>
+</header>
+
+<nav class="site-nav" aria-label="Hauptnavigation">
+  <button class="tabbtn active" data-tab="start">🏠 Start</button>
+  <button class="tabbtn" data-tab="overview">📊 Übersicht</button>
+  <button class="tabbtn" data-tab="browse">🗂️ Browser</button>
+  <button class="tabbtn" data-tab="gallery">🖼️ Galerie</button>
+  <button class="tabbtn" data-tab="tags">🏷️ Tags</button>
+  <span class="sep" aria-hidden="true"></span>
+  <button class="tabbtn" data-tab="werkstatt">🛠️ Werkstatt</button>
+  <button class="tabbtn" data-tab="design">🎨 Design</button>
+  <button class="tabbtn" data-tab="hilfe">❓ Hilfe</button>
+</nav>
+
+<main>
+<!-- ===================================================== START -->
+<section class="tab visible" id="tab-start">
+  <div class="statusbar" id="statusbar"></div>
+  <div id="status-error"></div>
+
+  <h2>So kommst du ans Ziel</h2>
+  <div class="steps">
+    <button class="step" data-goto="werkstatt:compress"><b>Rohdaten vorbereiten</b><span>Bilder, Videos und Dateien verkleinern und als ZIP bündeln.</span></button>
+    <button class="step" data-goto="werkstatt:generate"><b>CSV generieren</b><span>Aus dem ZIP einen Datensatz für den Import erzeugen.</span></button>
+    <button class="step" data-goto="werkstatt:check"><b>CSV prüfen</b><span>Fehler finden, bevor sie in der Datenbank landen.</span></button>
+    <button class="step" data-goto="hilfe"><b>Importieren &amp; verbinden</b><span>Schema anlegen, CSV importieren, Queries in der Config anpassen.</span></button>
+    <button class="step" data-goto="design"><b>Gestalten</b><span>Mit eigenem CSS eine Weboberfläche bauen, die zu deinem Projekt passt.</span></button>
+  </div>
+
+  <h2>Projektautor</h2>
+  <pre class="raw" id="author"></pre>
+
+  <h2 class="mt">Hinweis zur Bearbeitung</h2>
+  <div class="hint">
+    Diese Oberfläche zeigt die Daten aus der Datenbank. Erscheinen <b>Emojis</b>, ist die
+    zugehörige Query in <b>durchblick.conf.yml</b> noch nicht korrekt ans Schema angepasst.
+    Config speichern und Reiter wechseln: Die Daten werden beim Wechsel neu geladen.
+    Der Mauszeiger über einem Emoji zeigt die Fehlermeldung.
+  </div>
+</section>
+
+<!-- ===================================================== ÜBERSICHT -->
+<section class="tab" id="tab-overview">
+  <h2>Bestände</h2>
+  <div class="cardgrid" id="ov-counts"></div>
+  <h2>Speicherbelegung</h2>
+  <table class="data">
+    <thead><tr><th>Tabelle</th><th>Original (size)</th><th>Belegt (content)</th></tr></thead>
+    <tbody id="ov-sizes"></tbody>
+  </table>
+  <div id="ov-errors"></div>
+</section>
+
+<!-- ===================================================== BROWSER -->
+<section class="tab" id="tab-browse">
+  <h2>Dateien durchsuchen</h2>
+  <div class="toolbar">
+    <input type="text" id="pattern" value="%" placeholder="Pfad-Muster (% oder ~ als Platzhalter)" aria-label="Pfad-Muster" maxlength="200">
+    <input type="number" id="limit" value="20" min="1" max="500" style="width:90px" aria-label="Anzahl">
+    <button class="btn" id="btn-search">Suchen</button>
+    <button class="btn ghost" id="btn-all">Alle</button>
+  </div>
+  <div class="msg" id="browse-msg"></div>
+  <div class="scroll-x"><table class="data" id="browse-table"><thead></thead><tbody></tbody></table></div>
+</section>
+
+<!-- ===================================================== GALERIE -->
+<section class="tab" id="tab-gallery">
+  <h2>Galerie</h2>
+  <p class="lead">Alle Bilder aus der Datenbank, direkt aus der Tabelle gelesen und entpackt. Die Query dafür steht in der Config unter <code>gallery: sql_gallery_bind</code>.</p>
+  <div class="toolbar">
+    <input type="text" id="gal-pattern" value="%" placeholder="Pfad-Muster, z.B. %skins%" aria-label="Pfad-Muster" maxlength="200">
+    <input type="number" id="gal-limit" value="60" min="1" max="500" style="width:90px" aria-label="Anzahl">
+    <button class="btn" id="gal-search">Anzeigen</button>
+  </div>
+  <div class="chips" id="gal-folders" style="margin-bottom:16px"></div>
+  <div class="msg" id="gal-msg"></div>
+  <div class="gallery" id="gal-grid"></div>
+</section>
+
+<!-- ===================================================== TAGS -->
+<section class="tab" id="tab-tags">
+  <h2>Vergebene Tags</h2>
+  <div class="msg" id="tags-msg"></div>
+  <div class="chips" id="tags-chips"></div>
+  <div id="tag-detail" class="mt"></div>
+</section>
+
+<!-- ===================================================== WERKSTATT -->
+<section class="tab" id="tab-werkstatt">
+<div class="werkstatt">
+  <nav class="mode-tabs" role="tablist" aria-label="Werkstatt">
+    <button class="active" id="tabCompress" role="tab" aria-selected="true">🗜️ 1 · Rohdaten<small>verkleinern &amp; bündeln</small></button>
+    <button id="tabGenerate" role="tab" aria-selected="false">📊 2 · CSV generieren<small>Datensatz erzeugen</small></button>
+    <button id="tabCheck" role="tab" aria-selected="false">🔍 3 · CSV prüfen<small>vor dem Import</small></button>
+  </nav>
+
+  <!-- ---------- Schritt 1: Rohdaten vorbereiten ---------- -->
+  <div id="viewCompress">
+    <div class="card" id="cmpInputCard">
+      <h2>🗜️ Rohdaten vorbereiten</h2>
+      <p class="help-text" style="margin:-6px 0 16px">Bilder werden verkleinert, Videos zu Vorschaubildern, grosse Dateien übersprungen. So arbeitest du mit kleinen Datenmengen und die Datenbank bleibt schnell.</p>
+
+      <label>📂 Quelle</label>
+      <div class="drop-zone" id="cmpDrop">
+        <span class="big">📥</span>
+        Ordner, Dateien oder ZIP hierher ziehen
+        <small>Alles bleibt auf diesem Computer. Es wird nichts hochgeladen.</small>
+        <div class="drop-actions">
+          <button class="btn ghost" id="cmpPickFolder" type="button">📁 Ordner wählen</button>
+          <button class="btn ghost" id="cmpPickFiles" type="button">🗂️ Dateien / ZIP wählen</button>
+          <button class="btn ghost" id="cmpDemo" type="button">🎲 Beispiel-Rohdaten erzeugen</button>
+        </div>
+      </div>
+      <input type="file" id="cmpFolderInput" webkitdirectory multiple hidden>
+      <input type="file" id="cmpFilesInput" multiple hidden>
+      <div class="file-preview" id="cmpPreview" hidden>
+        <div><div class="name" id="cmpPreviewName"></div><div class="meta" id="cmpPreviewMeta"></div></div>
+        <button class="again small" id="cmpRemove" type="button">✕ Entfernen</button>
+      </div>
+
+      <div class="field">
+        <label for="cmpMode">🧭 Ablage im ZIP</label>
+        <select id="cmpMode">
+          <option value="sort">In Benutzerordner einsortieren: Files/&lt;benutzer&gt;/&lt;projekt&gt;/… (für eigene Projektdaten)</option>
+          <option value="keep">Ordnerstruktur unverändert lassen (für bestehende Rohdaten)</option>
+        </select>
+      </div>
+      <div class="form-row field" id="cmpUserRow">
+        <div>
+          <label for="cmpUser">👤 Benutzer (Besitzer der Dateien)</label>
+          <select id="cmpUser">
+            <option value="gamer">gamer (uid 999)</option>
+            <option value="coder">coder (uid 998)</option>
+            <option value="traeumer">traeumer (uid 1000)</option>
+            <option value="admin">admin (uid 1001)</option>
+          </select>
+        </div>
+        <div>
+          <label for="cmpProject">🏷️ Projektname</label>
+          <input type="text" id="cmpProject" value="mein_projekt" maxlength="40" autocomplete="off">
+          <small>Wird zum Ordnernamen. Umlaute und Leerzeichen werden ersetzt.</small>
+        </div>
+      </div>
+
+      <div class="form-row field">
+        <div>
+          <label for="cmpEdge">🖼️ Bilder: längste Seite</label>
+          <select id="cmpEdge">
+            <option value="128">128 px (winzig)</option>
+            <option value="256" selected>256 px (empfohlen)</option>
+            <option value="512">512 px</option>
+            <option value="1024">1024 px</option>
+          </select>
+        </div>
+        <div>
+          <label for="cmpFormat">🎞️ Bildformat</label>
+          <select id="cmpFormat">
+            <option value="image/webp" selected>WebP (klein, mit Transparenz)</option>
+            <option value="image/jpeg">JPEG (ohne Transparenz)</option>
+            <option value="image/png">PNG (verlustfrei, gross)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="cmpQuality">✨ Bildqualität: <span id="cmpQualityVal">75 %</span></label>
+        <input type="range" id="cmpQuality" min="40" max="95" step="5" value="75">
+      </div>
+      <div class="form-row field">
+        <div>
+          <label for="cmpVideo">🎬 Videos und GIFs (z.B. Tänze)</label>
+          <select id="cmpVideo">
+            <option value="poster" selected>Vorschaubild erzeugen</option>
+            <option value="keep">Behalten (bis Maximalgrösse)</option>
+            <option value="skip">Überspringen</option>
+          </select>
+        </div>
+        <div>
+          <label for="cmpMaxOther">📏 Maximalgrösse übrige Dateien</label>
+          <select id="cmpMaxOther">
+            <option value="51200">50 KB</option>
+            <option value="204800" selected>200 KB</option>
+            <option value="1048576">1 MB</option>
+            <option value="5242880">5 MB</option>
+            <option value="0">unbegrenzt</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="cmpPerFolder">🔢 Höchstens so viele Dateien pro Ordner (0 = alle)</label>
+        <input type="text" id="cmpPerFolder" value="0" inputmode="numeric" maxlength="5">
+      </div>
+
+      <div class="field">
+        <label>➕ Optional: bestehendes Rohdaten-ZIP ergänzen</label>
+        <div class="drop-zone compact" id="cmpBaseDrop">📦 ZIP der Lehrperson wählen <small>Die Einträge werden unverändert übernommen, deine Dateien kommen dazu.</small></div>
+        <input type="file" id="cmpBaseInput" accept=".zip,application/zip" hidden>
+        <div class="file-preview" id="cmpBasePreview" hidden>
+          <div class="name" id="cmpBaseName"></div>
+          <button class="again small" id="cmpBaseRemove" type="button">✕</button>
+        </div>
+      </div>
+
+      <label class="check-option">
+        <input type="checkbox" id="cmpInfo" checked>
+        <span><b>Beschreibung beilegen</b><br><small>Legt <code>_info.json</code> (alle Dateien mit Grösse und Bildmassen) und <code>LIESMICH.txt</code> (Quelle und Lizenz) ins ZIP.</small></span>
+      </label>
+      <div class="privacy-note">🔒 <span><b>Datenschutz:</b> Beim Neu-Kodieren von Bildern werden Metadaten wie <b>GPS-Standort</b>, Kameramodell und Aufnahmezeit entfernt. Verwende keine Fotos von Personen ohne deren Einverständnis.</span></div>
+
+      <button class="primary" id="cmpRun" disabled>🗜️ Rohdaten verkleinern</button>
+    </div>
+
+    <div class="card" id="cmpProgressCard" hidden>
+      <div class="progress-head"><span class="phase" id="cmpPhase">Starte…</span><span class="pct" id="cmpPercent">0%</span></div>
+      <div class="progress-wrap"><div class="progress-bar" id="cmpBar"></div></div>
+      <div class="progress-detail" id="cmpDetail"></div>
+      <div class="progress-file" id="cmpCurrent"></div>
+      <button class="again cancel" id="cmpCancel">✕ Abbrechen</button>
+    </div>
+
+    <div class="card" id="cmpResultCard" hidden>
+      <h2>🎉 Rohdaten sind bereit</h2>
+      <div class="result-grid">
+        <div class="result-tile"><div class="val" id="cmpResFiles">0</div><div class="lbl">Dateien</div></div>
+        <div class="result-tile"><div class="val" id="cmpResBefore">0</div><div class="lbl">vorher</div></div>
+        <div class="result-tile"><div class="val" id="cmpResAfter">0</div><div class="lbl">nachher</div></div>
+        <div class="result-tile t-ok"><div class="val" id="cmpResSaved">0</div><div class="lbl">gespart</div></div>
+      </div>
+      <ul class="facts" id="cmpResFacts"></ul>
+      <div id="cmpSkippedWrap" hidden>
+        <h3 class="section-title" id="cmpSkippedTitle">⏭️ Übersprungen</h3>
+        <ul class="skipped" id="cmpSkipped"></ul>
+      </div>
+      <div class="btn-row">
+        <button class="download" id="cmpDownload">⬇️ ZIP herunterladen</button>
+        <button class="primary" id="cmpToGenerator" style="margin-top:0">➡️ Weiter zu Schritt 2</button>
+      </div>
+      <button class="again" id="cmpAgain">🔄 Einstellungen ändern und nochmals</button>
+    </div>
+
+    <div class="card error-card" id="cmpErrorCard" hidden>
+      <h2>Ups! 😅</h2>
+      <p id="cmpErrorMessage"></p>
+      <button class="again" id="cmpRetry">Schliessen</button>
+    </div>
+  </div>
+
+  <!-- ---------- Schritt 2: CSV generieren ---------- -->
+  <div id="viewGenerate" hidden>
+    <div class="card" id="inputCard">
+      <h2>📊 Datensatz generieren</h2>
+      <div class="form-row">
+        <div>
+          <label for="userName">👤 Vor- und Nachname</label>
+          <input type="text" id="userName" placeholder="z.B. Anna Beispiel" autocomplete="off" maxlength="80">
+        </div>
+        <div>
+          <label>🎂 Geburtsdatum</label>
+          <div class="birthdate-row">
+            <select id="birthDay" aria-label="Tag"></select>
+            <select id="birthMonth" aria-label="Monat"></select>
+            <select id="birthYear" aria-label="Jahr"></select>
+          </div>
+        </div>
+      </div>
+      <div class="privacy-note">🔒 <span><b>Datenschutz:</b> Name und Geburtsdatum werden <b>nur lokal</b> verarbeitet und als versteckte Dateien in die CSV geschrieben (Teil der Aufgabe). Die CSV ist darum <b>persönlich</b>: nicht öffentlich teilen und nach Kursende löschen.</span></div>
+
+      <div class="field">
+        <label>🗜️ Rohdaten als ZIP-Archiv</label>
+        <div class="drop-zone" id="dropZone">
+          <span class="big">📦</span>
+          Hier klicken und ZIP-Archiv wählen
+          <small>Nur .zip-Dateien. Oder Archiv hierher ziehen. Tipp: zuerst in Schritt 1 verkleinern.</small>
+        </div>
+        <div class="file-preview" id="filePreview" hidden>
+          <div><div class="name" id="previewName"></div><div class="meta" id="previewMeta"></div></div>
+          <button class="again small" id="removeFile">✕ Entfernen</button>
+        </div>
+        <input type="file" id="zipInput" accept=".zip,application/zip" hidden>
+      </div>
+
+      <button class="primary" id="generateBtn" disabled>🚀 Datensatz generieren</button>
+    </div>
+
+    <div class="card" id="progressCard" hidden>
+      <div class="progress-head"><span class="phase" id="phaseLabel">Starte…</span><span class="pct" id="progressPercent">0%</span></div>
+      <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="progress-detail" id="progressDetail"></div>
+      <div class="progress-file" id="currentFile"></div>
+    </div>
+
+    <div class="card" id="resultCard" hidden>
+      <h2>🎉 Fertig, <span id="resultName"></span>!</h2>
+      <div class="result-grid">
+        <div class="result-tile"><div class="val" id="resultFiles">0</div><div class="lbl">Dateien analysiert</div></div>
+        <div class="result-tile"><div class="val" id="resultSize">0</div><div class="lbl">Datenmenge (entpackt)</div></div>
+      </div>
+      <button class="download" id="downloadBtn">⬇️ CSV-Datei herunterladen</button>
+      <button class="again" id="checkGeneratedBtn">🔍 Erzeugte CSV gleich prüfen</button>
+      <button class="again" id="againBtn">🔄 Weiteres ZIP-Archiv analysieren</button>
+    </div>
+
+    <div class="card error-card" id="errorCard" hidden>
+      <h2>Ups! 😅</h2>
+      <p id="errorMessage"></p>
+      <ul id="errorWarnings" hidden></ul>
+      <button class="again" id="retryBtn">Nochmal versuchen</button>
+    </div>
+  </div>
+
+  <!-- ---------- Schritt 3: CSV prüfen ---------- -->
+  <div id="viewCheck" hidden>
+    <div class="card" id="checkInputCard">
+      <h2>🔍 CSV prüfen</h2>
+      <label>🧾 CSV-Datei zur Prüfung</label>
+      <div class="drop-zone" id="csvDropZone">
+        <span class="big">🔍</span>
+        Hier klicken und CSV-Datei wählen
+        <small>Nur .csv-Dateien. Oder Datei hierher ziehen.</small>
+      </div>
+      <div class="file-preview" id="csvPreview" hidden>
+        <div><div class="name" id="csvPreviewName"></div><div class="meta" id="csvPreviewMeta"></div></div>
+        <button class="again small" id="csvRemove">✕ Entfernen</button>
+      </div>
+      <input type="file" id="csvInput" accept=".csv,text/csv" hidden>
+
+      <label class="check-option">
+        <input type="checkbox" id="deepCheck" checked>
+        <span><b>Dateiinhalte vollständig prüfen</b><br>
+        <small>Entpackt den Inhalt jeder Zeile und kontrolliert Grösse und MD5-Hash. Dauert bei grossen Dateien länger.</small></span>
+      </label>
+
+      <button class="primary" id="checkBtn" disabled>🔍 CSV prüfen</button>
+    </div>
+
+    <div class="card" id="checkProgressCard" hidden>
+      <div class="progress-head"><span class="phase" id="checkPhase">Starte…</span><span class="pct" id="checkPercent">0%</span></div>
+      <div class="progress-wrap"><div class="progress-bar" id="checkBar"></div></div>
+      <div class="progress-detail" id="checkDetail"></div>
+      <button class="again cancel" id="checkCancel">✕ Prüfung abbrechen</button>
+    </div>
+
+    <div class="card" id="checkResultCard" hidden>
+      <div class="status-banner" id="checkBanner">
+        <span class="icon" id="bannerIcon"></span>
+        <div><div class="title" id="bannerTitle"></div><div class="sub" id="bannerSub"></div></div>
+      </div>
+      <div class="result-grid">
+        <div class="result-tile"><div class="val" id="crRows">0</div><div class="lbl">Datensätze</div></div>
+        <div class="result-tile t-error"><div class="val" id="crErrors">0</div><div class="lbl">Fehler</div></div>
+        <div class="result-tile t-warn"><div class="val" id="crWarns">0</div><div class="lbl">Warnungen</div></div>
+        <div class="result-tile t-info"><div class="val" id="crInfos">0</div><div class="lbl">Hinweise</div></div>
+      </div>
+      <h3 class="section-title">📋 Eigenschaften der Datei</h3>
+      <ul class="facts" id="crFacts"></ul>
+      <div id="crGroupsWrap">
+        <h3 class="section-title">🧩 Befunde nach Art</h3>
+        <div class="table-wrap"><table class="findings" id="crGroups"></table></div>
+      </div>
+      <div id="crDetailsWrap">
+        <h3 class="section-title">🔎 Einzelbefunde</h3>
+        <div class="filter-row" id="crFilter"></div>
+        <div class="table-wrap"><table class="findings" id="crDetails"></table></div>
+        <div class="muted-note" id="crTruncated"></div>
+      </div>
+      <div class="btn-row">
+        <button class="download" id="reportBtn">📄 Prüfbericht herunterladen</button>
+        <button class="again" id="checkAgainBtn">🔄 Weitere CSV prüfen</button>
+      </div>
+    </div>
+
+    <div class="card error-card" id="checkErrorCard" hidden>
+      <h2>Ups! 😅</h2>
+      <p id="checkErrorMessage"></p>
+      <button class="again" id="checkRetryBtn">Nochmal versuchen</button>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===================================================== DESIGN -->
+<section class="tab" id="tab-design">
+  <h2>🎨 Design</h2>
+  <p class="lead">Mach Durchblick zu deinem eigenen Ding! Wähle eine Vorlage, probiere CSS live aus und speichere das Ergebnis als <code>theme/eigenes.css</code> im Programmordner. Diese Datei wird immer zuletzt geladen.</p>
+
+  <h3>1 · Vorlage wählen</h3>
+  <div class="theme-grid" id="theme-grid"></div>
+  <div class="hint" id="theme-hint"></div>
+
+  <div class="two-col">
+    <div>
+      <h3>2 · CSS live ausprobieren</h3>
+      <textarea class="css-editor" id="css-editor" spellcheck="false" aria-label="Eigenes CSS"></textarea>
+      <div class="toolbar" style="margin-top:10px">
+        <button class="btn" id="css-download">⬇️ Als eigenes.css speichern</button>
+        <button class="btn ghost" id="css-example">💡 Beispiel einfügen</button>
+        <button class="btn ghost" id="css-reset">↺ Leeren</button>
+      </div>
+      <p class="msg">Die Live-Vorschau gilt nur in diesem Browser. Dauerhaft wird es erst, wenn du die Datei nach <code>theme/eigenes.css</code> kopierst. Bilder und Schriften legst du ebenfalls in den Ordner <code>theme/</code> und verwendest sie mit <code>url('/theme/datei.webp')</code>.</p>
+    </div>
+    <div>
+      <h3>3 · Variablen zum Überschreiben</h3>
+      <table class="data var-table"><tbody id="var-table"></tbody></table>
+      <h3 class="mt">Wichtige Klassen</h3>
+      <table class="data var-table"><tbody>
+        <tr><td>.site-header</td><td>Kopfbereich mit Logo und Titel</td></tr>
+        <tr><td>.site-nav</td><td>Navigationsleiste</td></tr>
+        <tr><td>.stat</td><td>Kacheln in der Übersicht</td></tr>
+        <tr><td>.gallery-item</td><td>Ein Bild in der Galerie</td></tr>
+        <tr><td>table.data</td><td>Tabellen (Browser, Übersicht)</td></tr>
+        <tr><td>.card</td><td>Karten in der Werkstatt</td></tr>
+        <tr><td>.chip</td><td>Tags und Filter</td></tr>
+        <tr><td>#tab-start … #tab-hilfe</td><td>Einzelne Seiten</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================== HILFE -->
+<section class="tab" id="tab-hilfe">
+<div class="help">
+  <h2>❓ Hilfe</h2>
+  <div class="flow">
+    <span class="box">📁 Rohdaten</span><span class="arrow">→</span>
+    <span class="box">🗜️ verkleinern (ZIP)</span><span class="arrow">→</span>
+    <span class="box">📊 CSV generieren</span><span class="arrow">→</span>
+    <span class="box">🔍 CSV prüfen</span><span class="arrow">→</span>
+    <span class="box">🗄️ Import in die DB</span><span class="arrow">→</span>
+    <span class="box">⚙️ Queries in der Config</span><span class="arrow">→</span>
+    <span class="box">🎨 Durchblick gestalten</span>
+  </div>
+
+  <details open><summary>Wie fange ich an?</summary>
+    <ol>
+      <li>Öffne die <b>Werkstatt</b> und bereite deine Rohdaten vor (eigener Ordner oder «Beispiel-Rohdaten erzeugen»).</li>
+      <li>Optional: Wähle das ZIP deiner Lehrperson als «bestehendes Rohdaten-ZIP», damit alles in einem Archiv landet.</li>
+      <li>Klicke «Weiter zu Schritt 2», gib Name und Geburtsdatum ein und generiere die CSV.</li>
+      <li>Prüfe die CSV in Schritt 3. Erst wenn sie gültig ist, importierst du sie.</li>
+      <li>Lege in deiner Datenbank das Schema an und importiere die CSV (z.B. mit <code>LOAD DATA</code>, <code>COPY</code> oder <code>.import</code>).</li>
+      <li>Passe im Control Panel die Queries in <code>durchblick.conf.yml</code> an, bis keine Emojis mehr erscheinen.</li>
+    </ol>
+  </details>
+  <details><summary>Was steht in der CSV?</summary>
+    <p>Jede Zeile ist eine Datei: <code>count, hash, path, size, type, mode, uid, user, gid, group, time, compressed_size, compression_ratio, encoded_data</code>.</p>
+    <p><code>hash</code> ist der MD5-Wert des Inhalts, <code>encoded_data</code> der mit zlib komprimierte und URL-safe Base64-kodierte Inhalt. Gleiche Inhalte haben den gleichen Hash. Das ist wichtig für die Normalisierung (eine Tabelle für Inhalte, eine für Pfade).</p>
+  </details>
+  <details><summary>Warum soll ich die Rohdaten verkleinern?</summary>
+    <p>Ein Bild mit 4000×3000 Pixel braucht mehrere MB. In der CSV wird es Base64-kodiert und damit noch etwa ein Drittel grösser. Für die Galerie reichen 256 Pixel. Kleine Daten machen Import, Abfragen und Backups schnell und sparen Speicher auf dem Server.</p>
+  </details>
+  <details><summary>Meine Bilder erscheinen nicht in der Galerie</summary>
+    <ul>
+      <li>Prüfe im Control Panel unter «Prüfen» die Query <code>gallery.sql_gallery_bind</code>.</li>
+      <li>Die Query muss eine Spalte <code>digest</code> liefern (Alias verwenden: <code>select hash as digest …</code>).</li>
+      <li>Der Typ muss mit <code>image/</code> beginnen, z.B. <code>image/webp</code>.</li>
+      <li>Öffne im Browser einen Datensatz und klicke «Inhalt entpacken und anzeigen». Kommt ein Fehler, stimmt die Query <code>data.sql_content_bind</code> nicht.</li>
+    </ul>
+  </details>
+  <details><summary>Die CSV-Prüfung meldet Semikolon, Dezimalkomma oder abgeschnittene Inhalte</summary>
+    <p>Die CSV wurde in Excel geöffnet und wieder gespeichert. Excel ändert Trennzeichen, Zahlen und schneidet Zellen nach 32 767 Zeichen ab. Verwende immer die Original-CSV aus Schritt 2.</p>
+  </details>
+  <details><summary>Wie gestalte ich die Oberfläche?</summary>
+    <p>Im Reiter <b>Design</b> wählst du eine Vorlage und probierst CSS live aus. Speichere das Ergebnis als <code>theme/eigenes.css</code>. Titel, Untertitel, Logo und Vorlage stellst du in der Config im Abschnitt <code>ui:</code> ein.</p>
+    <p>Externe Schriften (z.B. Google Fonts) werden aus Datenschutzgründen blockiert. Lade die Schriftdatei herunter und lege sie in den Ordner <code>theme/</code>.</p>
+  </details>
+  <details><summary>Datenschutz und Urheberrecht</summary>
+    <ul>
+      <li>Werkstatt-Dateien bleiben im Browser. Die Weboberfläche ist nur auf diesem Computer erreichbar (127.0.0.1).</li>
+      <li>Die CSV enthält Name und Geburtsdatum: nicht teilen, nicht in ein öffentliches Repository hochladen.</li>
+      <li>Bilder aus Spielen (z.B. Skins), Filmen oder Webseiten sind urheberrechtlich geschützt. Im Unterricht verwenden ist in der Regel erlaubt, öffentlich ins Internet stellen nicht.</li>
+      <li>Keine Fotos von Mitlernenden oder anderen Personen ohne deren Einverständnis.</li>
+      <li>Das Datenbankpasswort gehört in <code>durchblick.conf.local.yml</code>, nicht in Screenshots oder Abgaben.</li>
+    </ul>
+  </details>
+  <details><summary>Ausführliche Anleitung</summary>
+    <p>Im Programmordner unter <code>docs/</code>: <code>ANLEITUNG.md</code> (Schritt für Schritt), <code>EIGENES-DESIGN.md</code> (CSS), <code>DATENSCHUTZ.md</code> und <code>HILFE.md</code> (Fehlersuche).</p>
+  </details>
+</div>
+</section>
+</main>
+
+<div class="overlay" id="overlay"><div class="dialog" id="dialog" role="dialog" aria-modal="true"></div></div>
+<footer class="site-footer">
+  <span id="ui-footer">Durchblick · Modul 141 · Konfiguration: durchblick.conf.yml</span><br>
+  🔒 Werkstatt-Dateien bleiben auf diesem Computer – es wird nichts hochgeladen.
+</footer>
+
+<script src="/static/js/generator.js"></script>
+<script src="/static/js/zipwriter.js"></script>
+<script src="/static/js/compressor.js"></script>
+<script src="/static/js/checker.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

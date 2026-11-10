@@ -1,0 +1,26 @@
+/* Vorlage «Alpen» - klar, rot-weiss, Swiss Style */
+:root {
+  --bg: #ffffff;
+  --panel: #f6f6f6;
+  --panel2: #ececec;
+  --border: #dcdcdc;
+  --text: #1a1a1a;
+  --muted: #666666;
+  --accent: #d52b1e;
+  --accent2: #b3241a;
+  --ok: #128a3e;
+  --warn: #b26a00;
+  --err: #d52b1e;
+  --info: #1f5fbf;
+  --header-bg: #d52b1e;
+  --radius: 4px;
+  --radius-small: 3px;
+  --font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --shadow: none;
+}
+.site-header { color: #fff; border-bottom: none; }
+.site-header .site-title span, .site-header .site-subtitle, .site-header .appver { color: #fff; }
+.site-title { font-weight: 800; letter-spacing: -.5px; }
+.site-nav button.active { border-radius: 3px; }
+button.download { color: #fff; }
+.overlay { background: rgba(0, 0, 0, .45); }

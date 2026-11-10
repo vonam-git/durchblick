@@ -1,0 +1,34 @@
+/* ==========================================================
+   eigenes.css - DEINE Gestaltung für Durchblick
+   ----------------------------------------------------------
+   Diese Datei wird nach allen anderen Stylesheets geladen.
+   Alles, was du hier schreibst, gewinnt.
+
+   So arbeitest du:
+   1. Webserver starten, Reiter «Design» öffnen.
+   2. CSS im Live-Editor ausprobieren.
+   3. Ergebnis hier hineinkopieren und speichern.
+   4. Browser neu laden (F5). Fertig!
+
+   Bilder und Schriften: in diesen Ordner (theme/) legen und
+   mit url('/theme/dateiname.webp') verwenden. Erlaubt sind
+   .css .png .jpg .jpeg .webp .gif .svg .woff .woff2 .ttf .otf
+   Externe Adressen (http://…) werden aus Datenschutz-
+   gründen blockiert.
+
+   Anleitung: docs/EIGENES-DESIGN.md
+   ========================================================== */
+
+/* Beispiel (Kommentarzeichen entfernen, um es zu aktivieren):
+
+:root {
+  --accent: #ff7a00;
+  --accent2: #ffb347;
+  --radius: 20px;
+}
+
+.site-title {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+*/

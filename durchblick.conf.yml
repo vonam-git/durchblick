@@ -76,6 +76,13 @@ browse:
   # Beispiel: 'select hash as digest, ...'
   sql_browseview_bind: "select digest, path, size, type, perm, usr, grp, time, compression from Meta where path like ? limit ?;"
 
+# Galerie-Seite (Bilder aus der Datenbank)
+gallery:
+  # Bind-Parameter 1: path-pattern (LIKE), Bind-Parameter 2: limit
+  # Benötigte Spalten: «digest» und «path», empfohlen zusätzlich «type».
+  # Es werden nur Zeilen angezeigt, deren type mit «image/» beginnt.
+  sql_gallery_bind: "select digest, path, type from Meta where type like 'image/%' and path like ? order by path limit ?;"
+
 # Daten-Detailseite
 data:
   # Attribut «content» (komprimiert + base64url), Bind-Parameter 1: digest
@@ -109,9 +116,25 @@ tags:
   sql_metapaths_for_tag_bind: "select m.path from Meta m join DataTag dt on m.digest = dt.data where dt.tag = ?;"
 
 ##################################
+# GESTALTUNG (darf angepasst werden)
+##################################
+ui:
+  # Titel, Untertitel und Logo (ein Emoji) im Kopf der Weboberfläche
+  titel: 'Durchblick'
+  untertitel: 'Datenbank in Betrieb nehmen · Modul 141'
+  logo: '🔍'
+  fusszeile: ''
+  # Vorlage: standard | hell | arcade | terminal | alpen
+  # Eigenes CSS gehört in theme/eigenes.css (wird zuletzt geladen).
+  theme: standard
+
+##################################
 # APPLIKATIONS-EINSTELLUNGEN     #
 # AB HIER NICHT MEHR ÄNDERN!     #
 ##################################
 app:
   host: 127.0.0.1
   port: 3000
+  # Nur nötig, wenn Durchblick über einen anderen Namen als 127.0.0.1 /
+  # localhost aufgerufen wird (z.B. in einer VM). Schutz vor DNS-Rebinding.
+  erlaubte_hosts: []

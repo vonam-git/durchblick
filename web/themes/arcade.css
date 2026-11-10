@@ -1,0 +1,27 @@
+/* Vorlage «Arcade» - knallig und verspielt, passt zu Game-Projekten */
+:root {
+  --bg: #12002b;
+  --bg-image: radial-gradient(circle at 15% 10%, #3b0a7a 0, transparent 40%),
+              radial-gradient(circle at 85% 90%, #00406b 0, transparent 45%);
+  --panel: #1d0640;
+  --panel2: #2a0a5c;
+  --border: #4b1d93;
+  --text: #f4ecff;
+  --muted: #b9a3e6;
+  --accent: #ff2bd6;
+  --accent2: #2bf7ff;
+  --accent-text: #12002b;
+  --ok: #7dff5b;
+  --warn: #ffd23f;
+  --err: #ff4d6d;
+  --info: #2bf7ff;
+  --header-bg: linear-gradient(90deg, #ff2bd6 0%, #7b2bff 50%, #2bf7ff 100%);
+  --radius: 18px;
+  --font-heading: "Trebuchet MS", system-ui, sans-serif;
+  --shadow: 0 0 0 1px #4b1d93, 0 8px 30px rgba(255, 43, 214, .18);
+}
+.site-header { color: #12002b; border-bottom: none; }
+.site-header .site-title span, .site-header .site-subtitle, .site-header .appver { color: #12002b; }
+.site-title { text-transform: uppercase; letter-spacing: 1.5px; font-weight: 900; }
+.gallery-item:hover { box-shadow: 0 0 22px rgba(43, 247, 255, .45); }
+.stat .value { color: var(--accent2); text-shadow: 0 0 12px rgba(43, 247, 255, .4); }

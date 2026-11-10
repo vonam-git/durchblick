@@ -1,0 +1,19 @@
+/* Vorlage «Hell» - ruhig, gut lesbar, ideal für Beamer */
+:root {
+  --bg: #f5f6fa;
+  --panel: #ffffff;
+  --panel2: #eef0f6;
+  --border: #dde1ec;
+  --text: #1f2330;
+  --muted: #5d6478;
+  --accent: #4f46e5;
+  --accent2: #4338ca;
+  --ok: #0e9f6e;
+  --warn: #b45309;
+  --err: #dc2626;
+  --info: #2563eb;
+  --header-bg: linear-gradient(135deg, #ffffff 0%, #eef0ff 100%);
+  --shadow: 0 4px 18px rgba(31, 35, 48, .07);
+}
+.overlay { background: rgba(31, 35, 48, .45); }
+button.download { color: #fff; }

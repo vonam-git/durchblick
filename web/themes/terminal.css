@@ -1,0 +1,25 @@
+/* Vorlage «Terminal» - grün auf schwarz wie eine alte Konsole */
+:root {
+  --bg: #050805;
+  --panel: #0b120b;
+  --panel2: #112011;
+  --border: #1f3d1f;
+  --text: #b6ffbf;
+  --muted: #5fae69;
+  --accent: #39ff6a;
+  --accent2: #39ff6a;
+  --accent-text: #031003;
+  --ok: #39ff6a;
+  --warn: #e6ff39;
+  --err: #ff5c5c;
+  --info: #7fffd4;
+  --header-bg: #050805;
+  --radius: 2px;
+  --radius-small: 2px;
+  --font: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --shadow: none;
+}
+.site-title::before { content: "> "; color: var(--accent); }
+.site-title::after { content: "_"; animation: blink 1s steps(1) infinite; color: var(--accent); }
+@keyframes blink { 50% { opacity: 0; } }
+.gallery-item img { filter: grayscale(.3) contrast(1.1); }
